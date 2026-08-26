@@ -1,22 +1,33 @@
-body, html {
+:root {
+  --clock-card-width: clamp(108px, 11.8vw, 220px);
+  --clock-card-height: calc(var(--clock-card-width) * 1.52);
+  --clock-gap: clamp(8px, 1.35vw, 24px);
+  --clock-separator-width: clamp(10px, 1.1vw, 20px);
+}
+
+html,
+body {
   margin: 0;
   padding: 0;
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: black;
-  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background: #000;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 #screensaver-canvas {
   display: block;
+  position: fixed;
+  inset: 0;
   width: 100vw;
   height: 100vh;
+  background: #000;
 }
 
-/* Flip Clock Layout */
+/* Reference-style flip clock */
 .flip-clock-container {
-  position: absolute;
+  position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -24,118 +35,208 @@ body, html {
   flex-direction: column;
   align-items: center;
   z-index: 10;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .flip-clock-slots {
   display: flex;
   align-items: center;
-  gap: 15px;
-  position: relative;
+  gap: var(--clock-gap);
+}
+
+.flip-clock-separator {
+  width: var(--clock-separator-width);
+  height: var(--clock-card-height);
+  flex: 0 0 var(--clock-separator-width);
 }
 
 .flip-clock-ampm {
   position: absolute;
-  top: -30px;
-  left: 0;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 18px;
-  font-weight: bold;
-}
-
-.flip-clock-separator {
-  width: 10px;
-  height: 100%;
-}
-
-.flip-clock-date {
-  margin-top: 50px;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 28px;
+  top: clamp(14px, 1.2vw, 24px);
+  left: clamp(18px, 1.45vw, 28px);
+  z-index: 20;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: clamp(16px, 1.45vw, 25px);
   font-weight: 500;
-  letter-spacing: 15px;
-  text-align: center;
-  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  line-height: 1;
 }
 
 .flip-clock-brand {
   position: absolute;
-  top: -80px;
+  top: calc(var(--clock-card-height) + clamp(78px, 6.8vw, 125px));
   right: 0;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 24px;
-  font-weight: 300;
-  letter-spacing: 5px;
+  color: rgba(255, 255, 255, 0.36);
+  font-size: clamp(12px, 1vw, 17px);
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-decoration: none;
+  transition: color 180ms ease, opacity 180ms ease;
 }
 
-/* Individual Slot */
+.flip-clock-brand:hover,
+.flip-clock-brand:focus-visible {
+  color: rgba(255, 255, 255, 0.8);
+  outline: none;
+}
+
+.flip-clock-date {
+  margin-top: clamp(52px, 5.4vw, 92px);
+  color: rgba(255, 255, 255, 0.62);
+  font-size: clamp(22px, 2.2vw, 42px);
+  font-weight: 400;
+  letter-spacing: clamp(0.22em, 0.38vw, 0.42em);
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Individual card */
 .flip-slot {
   position: relative;
-  width: 110px;
-  height: 180px;
-  background: #1a1a1a;
-  border-radius: 8px;
-  font-size: 130px;
-  font-weight: 700;
-  color: #e0e0e0;
-  text-align: center;
-  perspective: 1000px;
-  box-shadow: 0 15px 35px rgba(0,0,0,0.8);
+  width: var(--clock-card-width);
+  height: var(--clock-card-height);
+  flex: 0 0 var(--clock-card-width);
+  perspective: 1100px;
+  border-radius: clamp(12px, 0.85vw, 18px);
+  filter: drop-shadow(0 0 clamp(10px, 1.2vw, 24px) rgba(255, 255, 255, 0.08));
 }
 
 .flip-card {
   position: absolute;
+  left: 0;
   width: 100%;
   height: 50%;
   overflow: hidden;
-  background: #222;
-  left: 0;
+  background: #202020;
+  color: #f0f0f0;
 }
 
 .flip-card.top {
   top: 0;
-  border-bottom: 1px solid rgba(0,0,0,0.7);
-  border-radius: 8px 8px 0 0;
   z-index: 2;
-  background: linear-gradient(to bottom, #2a2a2a 0%, #222 100%);
+  border-radius: clamp(12px, 0.85vw, 18px) clamp(12px, 0.85vw, 18px) 0 0;
+  background: linear-gradient(180deg, #242424 0%, #1f1f1f 100%);
 }
 
 .flip-card.bottom {
   bottom: 0;
-  border-radius: 0 0 8px 8px;
   z-index: 1;
-  background: linear-gradient(to bottom, #222 0%, #1a1a1a 100%);
+  border-radius: 0 0 clamp(12px, 0.85vw, 18px) clamp(12px, 0.85vw, 18px);
+  background: linear-gradient(180deg, #1d1d1d 0%, #191919 100%);
 }
 
+.flip-card::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.flip-card.bottom::after {
+  top: auto;
+  bottom: 0;
+}
+
+/* The animated upper half folds down over the new lower half. */
 .flip-card.flip {
   top: 0;
-  z-index: 3;
-  transform-origin: bottom;
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 8px 8px 0 0;
-  background: #2a2a2a;
+  z-index: 4;
+  transform-origin: 50% 100%;
+  transform: rotateX(0deg);
+  border-radius: clamp(12px, 0.85vw, 18px) clamp(12px, 0.85vw, 18px) 0 0;
+  background: linear-gradient(180deg, #252525 0%, #202020 100%);
   backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
 }
 
 .flip-card.flip.flipping {
   transform: rotateX(-180deg);
+  transition: transform 620ms cubic-bezier(0.36, 0.02, 0.2, 1);
 }
 
 .card-half {
+  position: absolute;
+  left: 0;
   width: 100%;
   height: 200%;
   display: flex;
+  align-items: center;
   justify-content: center;
-  position: absolute;
-  left: 0;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  color: #f0f0f0;
+  font-size: clamp(82px, 9.1vw, 178px);
+  font-weight: 650;
+  line-height: var(--clock-card-height);
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.42);
 }
 
 .card-half.top {
   top: 0;
-  line-height: 180px;
 }
 
 .card-half.bottom {
-  bottom: 0;
-  line-height: 0;
+  top: -100%;
+}
+
+/* The split line is deliberately crisp and almost black, like a physical flap. */
+.flip-slot::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  z-index: 8;
+  transform: translateY(-1px);
+  background: rgba(0, 0, 0, 0.92);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+@media (max-width: 900px) {
+  :root {
+    --clock-card-width: clamp(74px, 13vw, 118px);
+    --clock-gap: clamp(5px, 1.4vw, 12px);
+  }
+
+  .flip-clock-date {
+    margin-top: 34px;
+  }
+
+  .flip-clock-brand {
+    top: calc(var(--clock-card-height) + 56px);
+  }
+}
+
+@media (max-width: 560px) {
+  :root {
+    --clock-card-width: clamp(48px, 13.8vw, 78px);
+    --clock-separator-width: 4px;
+  }
+
+  .flip-clock-slots {
+    gap: 5px;
+  }
+
+  .flip-clock-date {
+    margin-top: 26px;
+    letter-spacing: 0.16em;
+  }
+
+  .flip-clock-brand {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flip-card.flip.flipping {
+    transition-duration: 1ms;
+  }
 }
