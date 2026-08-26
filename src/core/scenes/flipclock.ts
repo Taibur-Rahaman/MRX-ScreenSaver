@@ -1,33 +1,36 @@
 import { Scene, SceneConfig } from '../scenes/manager';
 
+const FLIP_DURATION = 620;
+
 export class FlipClockScene implements Scene {
   private container: HTMLDivElement;
   private slots: Slot[] = [];
   private amPmElement: HTMLDivElement;
   private dateElement: HTMLDivElement;
-  private brandElement: HTMLDivElement;
+  private brandElement: HTMLAnchorElement;
 
-  constructor(gl: WebGL2RenderingContext) {
+  constructor(_gl: WebGL2RenderingContext) {
     this.container = document.createElement('div');
     this.container.className = 'flip-clock-container';
     document.body.appendChild(this.container);
 
-    // Brand Name
-    this.brandElement = document.createElement('div');
+    this.brandElement = document.createElement('a');
     this.brandElement.className = 'flip-clock-brand';
-    this.brandElement.innerText = 'MRX';
+    this.brandElement.href = 'https://github.com/Taibur-Rahaman/';
+    this.brandElement.target = '_blank';
+    this.brandElement.rel = 'noopener noreferrer';
+    this.brandElement.textContent = 'MRX';
+    this.brandElement.setAttribute('aria-label', 'MRX on GitHub');
     this.container.appendChild(this.brandElement);
 
-    // AM/PM Indicator
     this.amPmElement = document.createElement('div');
     this.amPmElement.className = 'flip-clock-ampm';
     this.container.appendChild(this.amPmElement);
 
-    // Create slots for HH MM SS (6 digits)
     const slotContainer = document.createElement('div');
     slotContainer.className = 'flip-clock-slots';
 
-    this.slots = Array.from({ length: 6 }, () => new Slot(slotContainer));
+    this.slots = Array.from({ length: 6 }, () => new Slot());
 
     this.slots.forEach((slot, i) => {
       slotContainer.appendChild(slot.element);
@@ -40,34 +43,28 @@ export class FlipClockScene implements Scene {
 
     this.container.appendChild(slotContainer);
 
-    // Date Display
     this.dateElement = document.createElement('div');
     this.dateElement.className = 'flip-clock-date';
     this.container.appendChild(this.dateElement);
   }
 
-  update(time: number, config: SceneConfig) {
+  update(_time: number, _config: SceneConfig) {
     const now = new Date();
-
     const hours24 = now.getHours();
-    const ampm = hours24 >= 12 ? 'PM' : 'AM';
-    this.amPmElement.innerText = ampm;
+    this.amPmElement.textContent = hours24 >= 12 ? 'PM' : 'AM';
 
     const hours = String(hours24 % 12 || 12).padStart(2, '0');
     const mins = String(now.getMinutes()).padStart(2, '0');
     const secs = String(now.getSeconds()).padStart(2, '0');
-    const timeStr = hours + mins + secs;
+    const timeStr = `${hours}${mins}${secs}`;
 
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < this.slots.length; i++) {
       this.slots[i].update(timeStr[i]);
     }
 
     const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
     const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-    const dayName = days[now.getDay()];
-    const monthName = months[now.getMonth()];
-    const dateNum = String(now.getDate()).padStart(2, '0');
-    this.dateElement.innerText = `${dayName} ${monthName} ${dateNum}`;
+    this.dateElement.textContent = `${days[now.getDay()]} ${months[now.getMonth()]} ${String(now.getDate()).padStart(2, '0')}`;
   }
 
   destroy() {
@@ -79,46 +76,70 @@ class Slot {
   public element: HTMLDivElement;
   private top: HTMLDivElement;
   private bottom: HTMLDivElement;
-  private flipCard: HTMLDivElement;
-  private currentDigit: string = '';
+  private flip: HTMLDivElement;
+  private currentDigit = '';
+  private animationToken = 0;
 
-  constructor(parent: HTMLElement) {
+  constructor() {
     this.element = document.createElement('div');
     this.element.className = 'flip-slot';
 
-    this.top = document.createElement('div');
-    this.top.className = 'flip-card top';
-    this.top.innerHTML = `<div class="card-half top">${this.currentDigit}</div>`;
+    this.top = this.createCard('top', '');
+    this.bottom = this.createCard('bottom', '');
 
-    this.bottom = document.createElement('div');
-    this.bottom.className = 'flip-card bottom';
-    this.bottom.innerHTML = `<div class="card-half bottom">${this.currentDigit}</div>`;
+    this.flip = this.createCard('flip', '');
+    this.flip.querySelector('.card-half')?.classList.add('top');
 
-    this.flipCard = document.createElement('div');
-    this.flipCard.className = 'flip-card flip';
-    this.flipCard.innerHTML = `<div class="card-half top">${this.currentDigit}</div>`;
-
-    this.element.appendChild(this.top);
     this.element.appendChild(this.bottom);
-    this.element.appendChild(this.flipCard);
+    this.element.appendChild(this.top);
+    this.element.appendChild(this.flip);
+  }
+
+  private createCard(type: 'top' | 'bottom' | 'flip', digit: string): HTMLDivElement {
+    const card = document.createElement('div');
+    card.className = `flip-card ${type}`;
+
+    const half = document.createElement('div');
+    half.className = 'card-half';
+    half.textContent = digit;
+    card.appendChild(half);
+
+    return card;
+  }
+
+  private setText(card: HTMLDivElement, digit: string) {
+    const half = card.querySelector('.card-half');
+    if (half) half.textContent = digit;
   }
 
   update(digit: string) {
     if (this.currentDigit === digit) return;
 
+    if (!this.currentDigit) {
+      this.currentDigit = digit;
+      this.setText(this.top, digit);
+      this.setText(this.bottom, digit);
+      this.setText(this.flip, digit);
+      return;
+    }
+
     const oldDigit = this.currentDigit;
     this.currentDigit = digit;
+    const token = ++this.animationToken;
 
-    this.bottom.querySelector('.card-half')?.textContent = digit;
-    this.flipCard.querySelector('.card-half')?.textContent = oldDigit;
+    this.setText(this.top, oldDigit);
+    this.setText(this.bottom, digit);
+    this.setText(this.flip, oldDigit);
 
-    this.flipCard.classList.remove('flipping');
-    void this.flipCard.offsetWidth;
-    this.flipCard.classList.add('flipping');
+    this.flip.classList.remove('flipping');
+    void this.flip.offsetWidth;
+    this.flip.classList.add('flipping');
 
-    setTimeout(() => {
-      this.top.querySelector('.card-half')?.textContent = digit;
-      this.flipCard.classList.remove('flipping');
-    }, 600);
+    window.setTimeout(() => {
+      if (token !== this.animationToken) return;
+      this.setText(this.top, digit);
+      this.setText(this.flip, digit);
+      this.flip.classList.remove('flipping');
+    }, FLIP_DURATION);
   }
 }
