@@ -5,11 +5,18 @@ export class FlipClockScene implements Scene {
   private slots: Slot[] = [];
   private amPmElement: HTMLDivElement;
   private dateElement: HTMLDivElement;
+  private brandElement: HTMLDivElement;
 
   constructor(gl: WebGL2RenderingContext) {
     this.container = document.createElement('div');
     this.container.className = 'flip-clock-container';
     document.body.appendChild(this.container);
+
+    // Brand Name
+    this.brandElement = document.createElement('div');
+    this.brandElement.className = 'flip-clock-brand';
+    this.brandElement.innerText = 'MRX';
+    this.container.appendChild(this.brandElement);
 
     // AM/PM Indicator
     this.amPmElement = document.createElement('div');
@@ -22,7 +29,6 @@ export class FlipClockScene implements Scene {
 
     this.slots = Array.from({ length: 6 }, () => new Slot(slotContainer));
 
-    // Add separators
     this.slots.forEach((slot, i) => {
       slotContainer.appendChild(slot.element);
       if (i === 1 || i === 3) {
@@ -43,12 +49,10 @@ export class FlipClockScene implements Scene {
   update(time: number, config: SceneConfig) {
     const now = new Date();
 
-    // AM/PM
     const hours24 = now.getHours();
     const ampm = hours24 >= 12 ? 'PM' : 'AM';
     this.amPmElement.innerText = ampm;
 
-    // Time String (HHMMSS)
     const hours = String(hours24 % 12 || 12).padStart(2, '0');
     const mins = String(now.getMinutes()).padStart(2, '0');
     const secs = String(now.getSeconds()).padStart(2, '0');
@@ -58,7 +62,6 @@ export class FlipClockScene implements Scene {
       this.slots[i].update(timeStr[i]);
     }
 
-    // Date (MON NOV 27)
     const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
     const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     const dayName = days[now.getDay()];

@@ -57,6 +57,16 @@ body, html {
   text-transform: uppercase;
 }
 
+.flip-clock-brand {
+  position: absolute;
+  top: -80px;
+  right: 0;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 24px;
+  font-weight: 300;
+  letter-spacing: 5px;
+}
+
 /* Individual Slot */
 .flip-slot {
   position: relative;
@@ -68,8 +78,8 @@ body, html {
   font-weight: 700;
   color: #e0e0e0;
   text-align: center;
-  perspective: 600px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+  perspective: 1000px;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.8);
 }
 
 .flip-card {
@@ -83,7 +93,7 @@ body, html {
 
 .flip-card.top {
   top: 0;
-  border-bottom: 1px solid rgba(0,0,0,0.6);
+  border-bottom: 1px solid rgba(0,0,0,0.7);
   border-radius: 8px 8px 0 0;
   z-index: 2;
   background: linear-gradient(to bottom, #2a2a2a 0%, #222 100%);
@@ -103,6 +113,7 @@ body, html {
   transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 8px 8px 0 0;
   background: #2a2a2a;
+  backface-visibility: hidden;
 }
 
 .flip-card.flip.flipping {
@@ -116,14 +127,15 @@ body, html {
   justify-content: center;
   position: absolute;
   left: 0;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
 .card-half.top {
   top: 0;
-  line-height: 180px; /* Match slot height */
+  line-height: 180px;
 }
 
 .card-half.bottom {
   bottom: 0;
-  line-height: 0; /* Match slot height, align to bottom */
+  line-height: 0;
 }
