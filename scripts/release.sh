@@ -29,7 +29,9 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
   codesign --force --sign - --timestamp=none "$PKG/MRXScreenSaver.saver/Contents/MacOS/MRXScreenSaver" 2>/dev/null || true
   codesign --force --deep --sign - --timestamp=none "$PKG/MRXScreenSaver.saver" 2>/dev/null || true
   (cd "$PKG" && zip -r "$OUT/MRXScreenSaver-macOS.zip" . -x "*.DS_Store")
-  echo "✅ $OUT/MRXScreenSaver-macOS.zip"
+  cp "$PKG/Install-MRX-ScreenSaver.command" "$OUT/"
+  cp "$PKG/README-macOS.txt" "$OUT/"
+  echo "✅ $OUT/MRXScreenSaver-macOS.zip (+ Install-MRX-ScreenSaver.command)"
 fi
 
 # Windows .scr — only when building on Windows (or via GitHub Actions)

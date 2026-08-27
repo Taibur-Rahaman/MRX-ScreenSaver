@@ -36,12 +36,11 @@ jobs:
 
       - name: Package macOS zip (saver + installer)
         run: |
-          mkdir -p release-assets/macos-pkg
+          mkdir -p release-assets/macos-pkg release-assets
           cp -R macos/MRXScreenSaver.saver release-assets/macos-pkg/
           cp scripts/macos/Install-MRX-ScreenSaver.command release-assets/macos-pkg/
           cp scripts/macos/README-macOS.txt release-assets/macos-pkg/
           chmod +x release-assets/macos-pkg/Install-MRX-ScreenSaver.command
-          # Strip quarantine from staged bundle before zip
           xattr -cr release-assets/macos-pkg/MRXScreenSaver.saver
           codesign --force --sign - --timestamp=none \
             release-assets/macos-pkg/MRXScreenSaver.saver/Contents/MacOS/MRXScreenSaver
@@ -49,11 +48,19 @@ jobs:
             release-assets/macos-pkg/MRXScreenSaver.saver
           cd release-assets/macos-pkg
           zip -r ../MRXScreenSaver-macOS.zip . -x "*.DS_Store"
+          cd ..
+          # Standalone installer (same folder layout: run from dir containing .saver)
+          cp macos-pkg/Install-MRX-ScreenSaver.command Install-MRX-ScreenSaver.command
+          cp macos-pkg/README-macOS.txt README-macOS.txt
+          unzip -l MRXScreenSaver-macOS.zip
 
       - uses: actions/upload-artifact@v4
         with:
           name: macos-saver
-          path: release-assets/MRXScreenSaver-macOS.zip
+          path: |
+            release-assets/MRXScreenSaver-macOS.zip
+            release-assets/Install-MRX-ScreenSaver.command
+            release-assets/README-macOS.txt
 
   windows-scr:
     name: Windows .scr
@@ -139,9 +146,14 @@ jobs:
         run: |
           mkdir -p release-assets
           cp artifacts/macos-saver/MRXScreenSaver-macOS.zip release-assets/
+          cp artifacts/macos-saver/Install-MRX-ScreenSaver.command release-assets/ || \
+            cp scripts/macos/Install-MRX-ScreenSaver.command release-assets/
+          cp artifacts/macos-saver/README-macOS.txt release-assets/ || \
+            cp scripts/macos/README-macOS.txt release-assets/
           cp artifacts/windows-scr/MRXScreenSaver.scr release-assets/
           cp artifacts/windows-scr/MRXScreenSaver-Windows.zip release-assets/ || true
           ls -la release-assets/
+          unzip -l release-assets/MRXScreenSaver-macOS.zip | head -20
 
       - name: Resolve tag
         id: tag
@@ -160,29 +172,27 @@ jobs:
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" --title "$TAG" --notes-file - <<'EOF'
           ## Assets
-          - **MRXScreenSaver-Windows.zip** — unzip, run Install.bat (recommended)
-          - **MRXScreenSaver.scr** — Windows screensaver binary
-          - **MRXScreenSaver-macOS.zip** — unzip, run Install-MRX-ScreenSaver.command (do NOT double-click .saver)
-          - **MRXScreenSaver.scr** — Windows screensaver binary
+          - **MRXScreenSaver-macOS.zip** — unzip → run **Install-MRX-ScreenSaver.command**
+          - **Install-MRX-ScreenSaver.command** — standalone macOS installer (use with zip contents)
           - **MRXScreenSaver-Windows.zip** — Windows installer zip
+          - **MRXScreenSaver.scr** — Windows screensaver binary
+
+          ### macOS (required)
+          1. Download **MRXScreenSaver-macOS.zip** (NOT the old .saver.zip)
+          2. Unzip — you must see **Install-MRX-ScreenSaver.command** next to the .saver
+          3. Double-click **Install-MRX-ScreenSaver.command**
+          4. System Settings → Screen Saver → MRX ScreenSaver → Preview
 
           ### Windows
           1. Download MRXScreenSaver-Windows.zip and unzip
-          2. Double-click Install.bat (or right-click .scr → Install)
+          2. Double-click Install.bat
           3. Select MRXScreenSaver in Screen Saver Settings
-          4. Needs WebView2 Runtime
-
-          ### macOS
-          1. Download **MRXScreenSaver-macOS.zip** and unzip
-          2. Double-click **Install-MRX-ScreenSaver.command** (required after Chrome download)
-          3. System Settings → Screen Saver → MRX ScreenSaver → Preview
-          4. Turn OFF "Show large clock" if you only see black + system time
-
-          If macOS says "damaged": do not open the .saver directly — use the Install command above.
           EOF
           fi
           gh release upload "$TAG" \
             release-assets/MRXScreenSaver-macOS.zip \
+            release-assets/Install-MRX-ScreenSaver.command \
+            release-assets/README-macOS.txt \
             release-assets/MRXScreenSaver.scr \
             release-assets/MRXScreenSaver-Windows.zip \
             --clobber

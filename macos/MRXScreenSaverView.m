@@ -22,11 +22,12 @@
     NSString *_ampm;
     NSString *_dateLabel;
     CFTimeInterval _flipDuration;
-    NSImage *_faces[10];
-    CGFloat _faceW, _faceH, _faceFont;
 }
 
 - (BOOL)isFlipped { return YES; }
+- (BOOL)isOpaque { return YES; }
+- (BOOL)wantsLayer { return NO; }
+- (BOOL)wantsUpdateLayer { return NO; }
 
 - (instancetype)initWithFrame:(NSRect)frame isPreview:(BOOL)isPreview {
     self = [super initWithFrame:frame isPreview:isPreview];
@@ -35,78 +36,43 @@
         _lastTimeKey = @"";
         _ampm = @"AM";
         _dateLabel = @"";
-        memset(_faces, 0, sizeof(_faces));
         _digits = [NSMutableArray arrayWithCapacity:6];
         for (int i = 0; i < 6; i++) [_digits addObject:[MRXDigitState new]];
-        // Do NOT use wantsLayer — legacyScreenSaver often shows layer.background only (black).
         self.animationTimeInterval = 1.0 / 60.0;
         [self syncClockImmediate:YES];
     }
     return self;
 }
 
-- (BOOL)isOpaque { return YES; }
-
 - (void)startAnimation {
     [super startAnimation];
-    [self ensureFullSize];
     [self syncClockImmediate:YES];
-    self.needsDisplay = YES;
+    [self setNeedsDisplay:YES];
+    [self display];
 }
 - (void)stopAnimation { [super stopAnimation]; }
 - (void)viewDidMoveToWindow {
     [super viewDidMoveToWindow];
-    [self ensureFullSize];
     [self setNeedsDisplay:YES];
     [self displayIfNeeded];
 }
 - (void)setFrameSize:(NSSize)newSize {
     [super setFrameSize:newSize];
-    self.needsDisplay = YES;
+    [self setNeedsDisplay:YES];
+}
+- (void)layout {
+    [super layout];
+    [self setNeedsDisplay:YES];
 }
 - (void)animateOneFrame {
-    [self ensureFullSize];
     [self syncClockImmediate:NO];
     [self advanceAnimations];
-    self.needsDisplay = YES;
+    [self setNeedsDisplay:YES];
 }
 - (BOOL)hasConfigureSheet { return NO; }
 - (NSWindow *)configureSheet { return nil; }
 
-- (NSSize)targetScreenSize {
-    NSScreen *screen = self.window.screen ?: NSScreen.mainScreen;
-    NSSize target = screen.frame.size;
-    if (self.window != nil) {
-        NSSize winSize = self.window.frame.size;
-        if (winSize.width > 1 && winSize.height > 1) target = winSize;
-    }
-    if (target.width < 1 || target.height < 1) target = NSMakeSize(1440, 900);
-    return target;
-}
-
-- (void)ensureFullSize {
-    NSSize target = [self targetScreenSize];
-    if (fabs(self.bounds.size.width - target.width) > 1 ||
-        fabs(self.bounds.size.height - target.height) > 1) {
-        [self setFrameSize:target];
-    }
-}
-
-- (NSRect)effectiveDrawingBounds {
-    NSRect b = self.bounds;
-    if (b.size.width > 1 && b.size.height > 1) {
-        NSSize screenPts = [self targetScreenSize];
-        if (screenPts.width > 1 && b.size.width > screenPts.width * 1.25) {
-            b.size = screenPts;
-            b.origin = NSZeroPoint;
-        }
-        return b;
-    }
-    NSSize target = [self targetScreenSize];
-    return NSMakeRect(0, 0, target.width, target.height);
-}
-
-#pragma mark - Clock
+#pragma mark - Clock state
 
 - (void)syncClockImmediate:(BOOL)immediate {
     NSDate *now = [NSDate date];
@@ -162,83 +128,105 @@
     }
 }
 
-#pragma mark - Faces (Y-down via lockFocusFlipped — matches isFlipped view)
+#pragma mark - Paint helpers (NSString / AppKit — reliable in ScreenSaverEngine)
 
-- (void)warmFaces:(CGFloat)w h:(CGFloat)h font:(CGFloat)font {
-    if (fabs(w - _faceW) < 0.5 && fabs(h - _faceH) < 0.5 && fabs(font - _faceFont) < 0.5 && _faces[0]) return;
-    for (int i = 0; i < 10; i++) _faces[i] = nil;
-    _faceW = w; _faceH = h; _faceFont = font;
-    for (int d = 0; d < 10; d++) _faces[d] = [self makeFace:d w:w h:h font:font];
-}
-
-- (NSImage *)makeFace:(NSInteger)digit w:(CGFloat)w h:(CGFloat)h font:(CGFloat)fontSize {
-    NSImage *img = [[NSImage alloc] initWithSize:NSMakeSize(w, h)];
-    [img lockFocusFlipped:YES];
-    CGFloat half = h / 2.0;
-    [[NSColor colorWithCalibratedRed:0.11 green:0.11 blue:0.11 alpha:1] setFill];
-    NSRectFill(NSMakeRect(0, 0, w, h));
-    [[NSColor colorWithCalibratedRed:0.17 green:0.17 blue:0.17 alpha:1] setFill];
-    NSRectFill(NSMakeRect(0, 0, w, half)); // top (Y-down)
-    [[NSColor colorWithCalibratedRed:0.10 green:0.10 blue:0.10 alpha:1] setFill];
-    NSRectFill(NSMakeRect(0, half, w, half)); // bottom
-    [[NSColor colorWithCalibratedWhite:1 alpha:0.06] setFill];
-    NSRectFill(NSMakeRect(0, 0, w, 4));
-
-    NSString *text = [NSString stringWithFormat:@"%ld", (long)digit];
-    NSDictionary *attrs = @{
+- (NSDictionary *)digitAttrs:(CGFloat)fontSize {
+    return @{
         NSFontAttributeName: [NSFont monospacedDigitSystemFontOfSize:fontSize weight:NSFontWeightBold],
         NSForegroundColorAttributeName: [NSColor colorWithCalibratedWhite:0.92 alpha:1],
     };
+}
+
+- (void)fillCardFace:(NSRect)card half:(CGFloat)half {
+    [[NSColor colorWithCalibratedRed:0.11 green:0.11 blue:0.11 alpha:1] setFill];
+    NSRectFill(card);
+    [[NSColor colorWithCalibratedRed:0.17 green:0.17 blue:0.17 alpha:1] setFill];
+    NSRectFill(NSMakeRect(card.origin.x, card.origin.y, card.size.width, half));
+    [[NSColor colorWithCalibratedRed:0.10 green:0.10 blue:0.10 alpha:1] setFill];
+    NSRectFill(NSMakeRect(card.origin.x, card.origin.y + half, card.size.width, half));
+    [[NSColor colorWithCalibratedWhite:1 alpha:0.06] setFill];
+    NSRectFill(NSMakeRect(card.origin.x, card.origin.y, card.size.width, 4));
+}
+
+- (void)drawDigitGlyph:(NSInteger)digit inCard:(NSRect)card font:(CGFloat)fontSize {
+    NSString *text = [NSString stringWithFormat:@"%ld", (long)digit];
+    NSDictionary *attrs = [self digitAttrs:fontSize];
     NSSize size = [text sizeWithAttributes:attrs];
-    [text drawAtPoint:NSMakePoint((w - size.width) / 2.0, (h - size.height) / 2.0) withAttributes:attrs];
-
-    [[NSColor colorWithCalibratedWhite:0 alpha:0.45] setStroke];
-    NSBezierPath *seam = [NSBezierPath bezierPath];
-    seam.lineWidth = 1;
-    [seam moveToPoint:NSMakePoint(0, half)];
-    [seam lineToPoint:NSMakePoint(w, half)];
-    [seam stroke];
-    [img unlockFocus];
-    return img;
+    NSPoint pt = NSMakePoint(
+        NSMidX(card) - size.width / 2.0,
+        NSMidY(card) - size.height / 2.0);
+    [text drawAtPoint:pt withAttributes:attrs];
 }
 
-/// Blit face half into dest.
-/// lockFocusFlipped faces + respectFlipped:YES use bottom-left fromRect:
-///   y=half..h → visual TOP,  y=0..half → visual BOTTOM.
-- (void)blit:(NSImage *)face fromTop:(BOOL)fromTop into:(NSRect)dst w:(CGFloat)w h:(CGFloat)h {
-    if (!face || dst.size.height < 0.5 || dst.size.width < 0.5) return;
-    CGFloat half = h / 2.0;
-    NSRect src = fromTop ? NSMakeRect(0, half, w, half) : NSMakeRect(0, 0, w, half);
-    [face drawInRect:dst
-            fromRect:src
-           operation:NSCompositingOperationSourceOver
-            fraction:1.0
-      respectFlipped:YES
-               hints:@{ NSImageHintInterpolation: @(NSImageInterpolationHigh) }];
+- (void)drawClippedDigit:(NSInteger)digit card:(NSRect)card clip:(NSRect)clip font:(CGFloat)fontSize {
+    [NSGraphicsContext saveGraphicsState];
+    [NSBezierPath clipRect:clip];
+    [self drawDigitGlyph:digit inCard:card font:fontSize];
+    [NSGraphicsContext restoreGraphicsState];
 }
 
-- (void)blitFull:(NSImage *)face into:(NSRect)card {
-    if (!face) return;
-    [face drawInRect:card
-            fromRect:NSZeroRect
-           operation:NSCompositingOperationSourceOver
-            fraction:1.0
-      respectFlipped:YES
-               hints:@{ NSImageHintInterpolation: @(NSImageInterpolationHigh) }];
+- (void)drawFlap:(BOOL)isTop
+           digit:(NSInteger)digit
+            card:(NSRect)card
+            half:(CGFloat)half
+            font:(CGFloat)fontSize
+          scaleY:(CGFloat)sy
+          scaleX:(CGFloat)sx
+           shade:(CGFloat)shade {
+    NSRect clip = isTop
+        ? NSMakeRect(card.origin.x, card.origin.y, card.size.width, half)
+        : NSMakeRect(card.origin.x, card.origin.y + half, card.size.width, half);
+    CGFloat hingeY = card.origin.y + half;
+    CGFloat cx = NSMidX(card);
+
+    CGContextRef ctx = NSGraphicsContext.currentContext.CGContext;
+    CGContextSaveGState(ctx);
+    CGContextClipToRect(ctx, NSRectToCGRect(clip));
+    CGContextTranslateCTM(ctx, cx, hingeY);
+    CGContextScaleCTM(ctx, sx, sy);
+    CGContextTranslateCTM(ctx, -cx, -hingeY);
+
+    if (isTop) {
+        [[NSColor colorWithCalibratedRed:0.17 green:0.17 blue:0.17 alpha:1] setFill];
+    } else {
+        [[NSColor colorWithCalibratedRed:0.10 green:0.10 blue:0.10 alpha:1] setFill];
+    }
+    NSRectFill(clip);
+    [self drawClippedDigit:digit card:card clip:clip font:fontSize];
+
+    if (shade > 0.01) {
+        NSGradient *g;
+        if (isTop) {
+            g = [[NSGradient alloc]
+                initWithStartingColor:[NSColor colorWithCalibratedWhite:0 alpha:MIN(0.55, shade)]
+                          endingColor:[NSColor colorWithCalibratedWhite:0 alpha:0]];
+            [g drawInRect:clip angle:90];
+        } else {
+            g = [[NSGradient alloc]
+                initWithStartingColor:[NSColor colorWithCalibratedWhite:0 alpha:0]
+                          endingColor:[NSColor colorWithCalibratedWhite:0 alpha:MIN(0.55, shade)]];
+            [g drawInRect:clip angle:90];
+        }
+    }
+  CGFloat rim = MAX(1.0, half * 0.035);
+  [[NSColor colorWithCalibratedWhite:1 alpha:(isTop ? 0.10 : 0.06) * sy] setFill];
+  if (isTop) {
+    NSRectFill(NSMakeRect(card.origin.x, card.origin.y, card.size.width, rim));
+  } else {
+    NSRectFill(NSMakeRect(card.origin.x, NSMaxY(card) - rim, card.size.width, rim));
+  }
+    CGContextRestoreGState(ctx);
 }
 
 #pragma mark - Draw
 
 - (void)drawRect:(NSRect)dirtyRect {
-    [self ensureFullSize];
-    NSRect bounds = [self effectiveDrawingBounds];
-    NSRect fillRect = self.bounds;
-    if (fillRect.size.width <= 1 || fillRect.size.height <= 1) fillRect = bounds;
+    NSRect bounds = self.bounds;
+    if (bounds.size.width < 2 || bounds.size.height < 2) return;
+
     [[NSColor colorWithCalibratedWhite:0.04 alpha:1] setFill];
-    NSRectFill(fillRect);
-    if (bounds.size.width > 1 && bounds.size.height > 1) {
-        [self drawClockInBounds:bounds];
-    }
+    NSRectFill(bounds);
+    [self drawClockInBounds:bounds];
 }
 
 - (void)drawClockInBounds:(NSRect)bounds {
@@ -260,9 +248,7 @@
     }
     CGFloat cr = cardH * 0.05;
     CGFloat fontSize = cardH * 0.66;
-    [self warmFaces:cardW h:cardH font:fontSize];
-
-    CGFloat x = (bounds.size.width - totalW) / 2.0;
+    CGFloat x = bounds.origin.x + (bounds.size.width - totalW) / 2.0;
     CGFloat y = NSMidY(bounds) - cardH / 2.0;
     CGFloat startX = x;
 
@@ -270,9 +256,9 @@
            fontSize:MAX(12, cardH * 0.11) color:[NSColor colorWithCalibratedWhite:0.55 alpha:1] align:0];
 
     for (int g = 0; g < 3; g++) {
-        [self drawDigit:g * 2 x:x y:y w:cardW h:cardH cr:cr];
+        [self drawDigit:g * 2 x:x y:y w:cardW h:cardH cr:cr font:fontSize];
         x += cardW + interGap;
-        [self drawDigit:g * 2 + 1 x:x y:y w:cardW h:cardH cr:cr];
+        [self drawDigit:g * 2 + 1 x:x y:y w:cardW h:cardH cr:cr font:fontSize];
         x += cardW;
         if (g < 2) {
             x += groupGap;
@@ -287,15 +273,14 @@
            fontSize:MAX(11, cardH * 0.08) color:[NSColor colorWithCalibratedWhite:0.35 alpha:1] align:2];
 }
 
-- (void)drawDigit:(NSInteger)index x:(CGFloat)x y:(CGFloat)y w:(CGFloat)w h:(CGFloat)h cr:(CGFloat)cr {
+- (void)drawDigit:(NSInteger)index x:(CGFloat)x y:(CGFloat)y w:(CGFloat)w h:(CGFloat)h
+               cr:(CGFloat)cr font:(CGFloat)fontSize {
     CGFloat half = h / 2.0;
     MRXDigitState *st = _digits[index];
     BOOL anim = st.isFlipping;
     double progress = anim ? st.progress : 0;
     NSInteger oldD = anim ? st.oldDigit : st.current;
     NSInteger newD = anim ? st.newDigit : st.current;
-    NSImage *oldF = _faces[MAX(0, MIN(9, (int)oldD))];
-    NSImage *newF = _faces[MAX(0, MIN(9, (int)newD))];
 
     NSRect card = NSMakeRect(x, y, w, h);
     NSRect topClip = NSMakeRect(x, y, w, half);
@@ -304,13 +289,14 @@
 
     [NSGraphicsContext saveGraphicsState];
     [[NSBezierPath bezierPathWithRoundedRect:card xRadius:cr yRadius:cr] addClip];
+    [self fillCardFace:card half:half];
 
     if (!anim) {
-        [self blitFull:newF into:card];
+        [self drawClippedDigit:newD card:card clip:topClip font:fontSize];
+        [self drawClippedDigit:newD card:card clip:botClip font:fontSize];
     } else {
-        // Static: NEW top + OLD bottom (Flipqlo)
-        [self blit:newF fromTop:YES into:topClip w:w h:h];
-        [self blit:oldF fromTop:NO into:botClip w:w h:h];
+        [self drawClippedDigit:newD card:card clip:topClip font:fontSize];
+        [self drawClippedDigit:oldD card:card clip:botClip font:fontSize];
 
         if (progress < 0.5) {
             double t = progress / 0.5;
@@ -318,34 +304,14 @@
             double sy = MAX(0.0, cos(angle));
             double sx = 1.0 - (1.0 - sy) * 0.18;
             double shade = sin(angle) * 0.42;
-
             if (shade > 0.02) {
                 NSGradient *cast = [[NSGradient alloc]
-                    initWithStartingColor:[NSColor colorWithCalibratedWhite:0 alpha:shade * 0.65]
+                    initWithStartingColor:[NSColor colorWithCalibratedWhite:0 alpha:shade * 0.55]
                               endingColor:[NSColor colorWithCalibratedWhite:0 alpha:0]];
                 [cast drawInRect:botClip angle:90];
             }
             if (sy > 0.04) {
-                CGFloat dh = half * sy;
-                CGFloat dw = w * sx;
-                CGFloat dx = x + (w - dw) / 2.0;
-                // Top flap free edge → hinge (Y-down)
-                NSRect dst = NSMakeRect(dx, hinge - dh, dw, dh);
-                [NSGraphicsContext saveGraphicsState];
-                [NSBezierPath clipRect:topClip];
-                // Slightly lifted flap face so it reads as a separate card
-                [[NSColor colorWithCalibratedRed:0.19 green:0.19 blue:0.19 alpha:1] setFill];
-                NSRectFill(dst);
-                [self blit:oldF fromTop:YES into:dst w:w h:h];
-                if (shade > 0.02) {
-                    NSGradient *fg = [[NSGradient alloc]
-                        initWithStartingColor:[NSColor colorWithCalibratedWhite:0 alpha:MIN(0.5, shade)]
-                                  endingColor:[NSColor colorWithCalibratedWhite:0 alpha:0]];
-                    [fg drawInRect:dst angle:90];
-                }
-                [[NSColor colorWithCalibratedWhite:1 alpha:0.14 * sy] setFill];
-                NSRectFill(NSMakeRect(dx, dst.origin.y, dw, MAX(1.5, dh * 0.06)));
-                [NSGraphicsContext restoreGraphicsState];
+                [self drawFlap:YES digit:oldD card:card half:half font:fontSize scaleY:sy scaleX:sx shade:shade];
             }
             if (sy < 0.28) {
                 CGFloat thick = MAX(2.5, half * 0.06 * (1.0 - sy / 0.28));
@@ -358,33 +324,14 @@
             double sy = MAX(0.0, sin(angle));
             double sx = 1.0 - (1.0 - sy) * 0.18;
             double shade = cos(angle) * 0.42;
-
             if (shade > 0.02) {
                 NSGradient *cast = [[NSGradient alloc]
                     initWithStartingColor:[NSColor colorWithCalibratedWhite:0 alpha:0]
-                              endingColor:[NSColor colorWithCalibratedWhite:0 alpha:shade * 0.55]];
+                              endingColor:[NSColor colorWithCalibratedWhite:0 alpha:shade * 0.45]];
                 [cast drawInRect:topClip angle:90];
             }
             if (sy > 0.04) {
-                CGFloat dh = half * sy;
-                CGFloat dw = w * sx;
-                CGFloat dx = x + (w - dw) / 2.0;
-                // Bottom flap unfolds from hinge downward
-                NSRect dst = NSMakeRect(dx, hinge, dw, dh);
-                [NSGraphicsContext saveGraphicsState];
-                [NSBezierPath clipRect:botClip];
-                [[NSColor colorWithCalibratedRed:0.13 green:0.13 blue:0.13 alpha:1] setFill];
-                NSRectFill(dst);
-                [self blit:newF fromTop:NO into:dst w:w h:h];
-                if (shade > 0.02) {
-                    NSGradient *fg = [[NSGradient alloc]
-                        initWithStartingColor:[NSColor colorWithCalibratedWhite:0 alpha:0]
-                                  endingColor:[NSColor colorWithCalibratedWhite:0 alpha:MIN(0.48, shade)]];
-                    [fg drawInRect:dst angle:90];
-                }
-                [[NSColor colorWithCalibratedWhite:1 alpha:0.10 * sy] setFill];
-                NSRectFill(NSMakeRect(dx, NSMaxY(dst) - MAX(1.5, dh * 0.06), dw, MAX(1.5, dh * 0.06)));
-                [NSGraphicsContext restoreGraphicsState];
+                [self drawFlap:NO digit:newD card:card half:half font:fontSize scaleY:sy scaleX:sx shade:shade];
             }
             if (sy < 0.28) {
                 CGFloat thick = MAX(2.5, half * 0.06 * (1.0 - sy / 0.28));
