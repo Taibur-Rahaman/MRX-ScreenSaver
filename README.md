@@ -45,34 +45,33 @@ Query parameters:
 
 ### macOS Screen Saver install
 
+The macOS `.saver` is a **native** Flipqlo-style flip clock (Core Graphics).  
+It does **not** use WKWebView — WebKit black-screens inside `legacyScreenSaver` on Sonoma+.
+
 ```bash
 npm run build:macos-saver
+# or:
+bash scripts/fix-macos-screensaver.sh
 ```
 
-Then either double-click `macos/MRXScreenSaver.saver`, or:
+Then run these exactly:
 
 ```bash
-cp -R macos/MRXScreenSaver.saver ~/Library/Screen\ Savers/
-xattr -dr com.apple.quarantine ~/Library/Screen\ Savers/MRXScreenSaver.saver
+# CRITICAL — remove the empty broken system install
+sudo rm -rf "/Library/Screen Savers/MRXScreenSaver.saver"
+
+# Force macOS to reload the saver host
+killall legacyScreenSaver ScreenSaverEngine 2>/dev/null
+
+# Keep the big system clock overlay OFF
+defaults -currentHost write com.apple.screensaver showClock -bool false
 ```
 
-Open **System Settings → Screen Saver**, select **MRX ScreenSaver**, and preview it.
+Open **System Settings → Screen Saver → MRX ScreenSaver → Preview**.
 
-**Important — avoid the black system clock overlay:**
-1. In Screen Saver settings, turn **off** “Show large clock” / clock overlay if present.
-2. Or run:
-   ```bash
-   defaults -currentHost write com.apple.screensaver showClock -bool false
-   ```
-3. If you previously installed an empty bundle to `/Library/Screen Savers/`, remove it (it loads instead of the working one):
-   ```bash
-   sudo rm -rf "/Library/Screen Savers/MRXScreenSaver.saver"
-   cp -R macos/MRXScreenSaver.saver ~/Library/Screen\ Savers/
-   ```
+If macOS blocks it: **Privacy & Security → Open Anyway**.
 
-If macOS blocks the saver: **Privacy & Security → Open Anyway**.
-
-The macOS saver always loads the **flip clock** scene (injected by the native host). For browser testing use `?scene=flipclock`.
+Browser / Tauri still use the web Flip Clock via `?scene=flipclock`.
 
 ## 📦 Release Process
 
