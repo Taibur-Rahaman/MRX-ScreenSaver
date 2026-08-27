@@ -1,4 +1,6 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+use tauri::Manager;
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -10,14 +12,15 @@ pub fn run() {
 
     let args: Vec<String> = env::args().collect();
 
-    let (mode, is_fullscreen, is_borderless, is_topmost) = if args.contains(&"/s".to_string()) {
+    // Windows .scr protocol: /s run, /c configure, /p <HWND> preview
+    let (mode, is_fullscreen, is_borderless, is_topmost) = if args.iter().any(|a| a.eq_ignore_ascii_case("/s")) {
         ("screensaver", true, true, true)
-    } else if args.contains(&"/p".to_string()) {
+    } else if args.iter().any(|a| a.eq_ignore_ascii_case("/p")) {
         ("preview", false, true, false)
-    } else if args.contains(&"/c".to_string()) {
+    } else if args.iter().any(|a| a.eq_ignore_ascii_case("/c")) {
         ("settings", false, false, false)
     } else {
-        ("screensaver", false, false, false) // Default for dev
+        ("screensaver", false, false, false)
     };
 
     tauri::Builder::default()
@@ -25,16 +28,27 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .invoke_handler(tauri::generate_handler![greet])
         .setup(move |app| {
-            let window = app.get_webview_window("main").unwrap();
+            let window = app.get_webview_window("main").expect("main window");
+
+            let _ = window.eval(&format!(
+                "window.__MRX_SCREENSAVER__ = Object.assign(window.__MRX_SCREENSAVER__ || {{}}, {{ mode: '{}', scene: 'flipclock' }});",
+                mode
+            ));
 
             if is_fullscreen {
-                window.set_fullscreen(Some(tauri::Fullscreen::Maximized)).unwrap();
+                let _ = window.set_fullscreen(true);
             }
             if is_borderless {
-                window.set_decorations(false).unwrap();
+                let _ = window.set_decorations(false);
             }
             if is_topmost {
-                window.set_always_on_top(true).unwrap();
+                let _ = window.set_always_on_top(true);
+            }
+
+            // Full-screen saver: maximize + cover the display.
+            if mode == "screensaver" && is_fullscreen {
+                let _ = window.maximize();
+                let _ = window.set_fullscreen(true);
             }
 
             Ok(())

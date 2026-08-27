@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Release packaging output
+release-assets/
+.tmp-screens/
+.claude/
+

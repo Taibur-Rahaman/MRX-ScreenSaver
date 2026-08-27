@@ -75,26 +75,43 @@ Browser / Tauri still use the web Flip Clock via `?scene=flipclock`.
 
 ## 📦 Release Process
 
-The release process is automated via `npm run release`, which executes `scripts/release.sh`.
+Push a version tag (or run **Release** workflow manually). GitHub Actions builds and attaches:
 
-### Windows Release
-1. Run `npm run release`.
-2. The script builds the Tauri binary and renames it to `MRXScreenSaver.scr`.
-3. Install by right-clicking the `.scr` file and selecting **Install**.
+| Asset | Platform |
+|-------|----------|
+| `MRXScreenSaver-macOS.saver.zip` | macOS |
+| `MRXScreenSaver.scr` | Windows |
 
-### macOS Release
-1. Run `npm run release`. This builds the frontend assets and copies them into the `.saver` bundle.
-2. **Native Compilation**:
-   - Open the project in Xcode.
-   - Compile the `ScreenSaverView.swift` code into a Mach-O bundle binary.
-   - Place the resulting binary in `macos/MRXScreenSaver.saver/Contents/MacOS/MRXScreenSaver`.
-3. Install by double-clicking the `.saver` bundle.
+```bash
+git tag v0.1.8 && git push origin v0.1.8
+```
+
+Local packaging helpers:
+```bash
+npm run release          # macOS .saver zip (on Mac); Windows .scr when run on Windows
+npm run build:macos-saver
+```
+
+### Windows install
+1. Download **MRXScreenSaver.scr** from the release.
+2. Right-click → **Install**.
+3. Choose it in **Screen Saver Settings**.
+4. Preview / Apply.
+
+### macOS install
+1. Download **MRXScreenSaver-macOS.saver.zip**, unzip.
+2. Double-click `MRXScreenSaver.saver`, or run `npm run build:macos-saver`.
+3. Remove any broken system copy if needed:
+   `sudo rm -rf "/Library/Screen Savers/MRXScreenSaver.saver"`
+
+Browser / Tauri still use the web Flip Clock via `?scene=flipclock`.
 
 ## 📁 Project Structure
 - `src/core/`: Rendering engine and scene management.
 - `src/core/scenes/`: Individual animation implementations (flip clock, starfield).
-- `src-tauri/`: Rust backend for window management and system integration.
-- `macos/`: Native Swift wrapper and bundle configuration.
+- `src-tauri/`: Rust/Tauri backend — Windows `.scr` packaging.
+- `macos/`: Native Objective-C Flipqlo `.saver` bundle.
+- `.github/workflows/release.yml`: Builds macOS + Windows release assets.
 - `assets/`: Shaders and visual resources.
 
 ## 👤 Credit

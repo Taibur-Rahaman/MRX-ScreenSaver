@@ -1,0 +1,161 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to rebuild assets for (e.g. v0.1.8)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  macos-saver:
+    name: macOS .saver
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install & build frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build native .saver
+        run: bash scripts/build-macos-saver.sh
+
+      - name: Zip .saver bundle
+        run: |
+          mkdir -p release-assets
+          cd macos
+          ditto -c -k --sequesterRsrc --keepParent MRXScreenSaver.saver \
+            ../release-assets/MRXScreenSaver-macOS.saver.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-saver
+          path: release-assets/MRXScreenSaver-macOS.saver.zip
+
+  windows-scr:
+    name: Windows .scr
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Install Tauri CLI
+        run: npm install -D @tauri-apps/cli@2
+
+      - name: Build Tauri (Windows)
+        run: npx tauri build
+        env:
+          CI: true
+
+      - name: Create .scr from exe
+        shell: bash
+        run: |
+          mkdir -p release-assets
+          EXE=""
+          for candidate in \
+            src-tauri/target/release/MRXScreenSaver.exe \
+            src-tauri/target/release/mrx-screensaver.exe \
+            src-tauri/target/release/app.exe
+          do
+            if [[ -f "$candidate" ]]; then
+              EXE="$candidate"
+              break
+            fi
+          done
+          if [[ -z "$EXE" ]]; then
+            EXE="$(find src-tauri/target/release -maxdepth 1 -name '*.exe' | head -n 1 || true)"
+          fi
+          if [[ -z "$EXE" || ! -f "$EXE" ]]; then
+            echo "No exe found under target/release:"
+            ls -la src-tauri/target/release || true
+            find src-tauri/target -name '*.exe' | head -50
+            exit 1
+          fi
+          echo "Using $EXE"
+          cp "$EXE" release-assets/MRXScreenSaver.scr
+          ls -la release-assets/MRXScreenSaver.scr
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-scr
+          path: release-assets/MRXScreenSaver.scr
+
+  publish:
+    name: Attach to GitHub Release
+    needs: [macos-saver, windows-scr]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Collect assets
+        run: |
+          mkdir -p release-assets
+          cp artifacts/macos-saver/MRXScreenSaver-macOS.saver.zip release-assets/
+          cp artifacts/windows-scr/MRXScreenSaver.scr release-assets/
+          ls -la release-assets/
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [[ -n "${{ github.event.inputs.tag }}" ]]; then
+            echo "name=${{ github.event.inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.tag.outputs.name }}"
+          # Create release if missing (workflow_dispatch / first push)
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --title "$TAG" \
+              --notes "## Assets
+          - **MRXScreenSaver-macOS.saver.zip** — unzip, double-click to install
+          - **MRXScreenSaver.scr** — right-click → Install (Windows)
+
+          ### Windows install
+          1. Download \`MRXScreenSaver.scr\`
+          2. Right-click → **Install**
+          3. Pick it in Screen Saver Settings
+
+          ### macOS install
+          1. Download & unzip \`MRXScreenSaver-macOS.saver.zip\`
+          2. Double-click \`MRXScreenSaver.saver\`
+          3. Or: \`npm run build:macos-saver\`"
+          fi
+          gh release upload "$TAG" \
+            release-assets/MRXScreenSaver-macOS.saver.zip \
+            release-assets/MRXScreenSaver.scr \
+            --clobber
+          echo "Uploaded to https://github.com/${{ github.repository }}/releases/tag/$TAG"
