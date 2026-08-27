@@ -2,25 +2,27 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>en</string>
-    <key>CFBundleExecutable</key>
-    <string>MRXScreenSaver</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.mrx.screensaver</string>
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-    <key>CFBundleName</key>
-    <string>MRX ScreenSaver</string>
-    <key>CFBundlePackageType</key>
-    <string>BNDL</string>
-    <key>CFBundleShortVersionString</key>
-    <string>0.1.2</string>
-    <key>CFBundleVersion</key>
-    <string>3</string>
-    <key>NSPrincipalClass</key>
-    <string>MRXScreenSaverView</string>
-    <key>NSHumanReadableCopyright</key>
-    <string>Copyright © MRX (Taibur Rahaman)</string>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>MRXScreenSaver</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.mrx.screensaver</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>MRX ScreenSaver</string>
+	<key>CFBundlePackageType</key>
+	<string>BNDL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.1.4</string>
+	<key>CFBundleVersion</key>
+	<string>5</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>13.0</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © MRX (Taibur Rahaman)</string>
+	<key>NSPrincipalClass</key>
+	<string>MRXScreenSaverView</string>
 </dict>
 </plist>

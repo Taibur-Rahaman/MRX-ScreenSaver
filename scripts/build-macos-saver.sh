@@ -1,35 +1,17 @@
 #!/usr/bin/env bash
-# Build frontend assets + compile the macOS .saver bundle binary.
+# Build a native (no WebKit) macOS .saver flip-clock bundle.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 SAVER_BUNDLE="$ROOT/macos/MRXScreenSaver.saver"
-WWW_DIR="$SAVER_BUNDLE/Contents/Resources/www"
 MACOS_DIR="$SAVER_BUNDLE/Contents/MacOS"
 SWIFT_SRC="$ROOT/macos/ScreenSaverView.swift"
 BINARY="$MACOS_DIR/MRXScreenSaver"
+WWW_DIR="$SAVER_BUNDLE/Contents/Resources/www"
 
-echo "📦 Building frontend (relative base for file://)..."
-npm run build
-
-echo "📁 Syncing assets into .saver Resources/www..."
-rm -rf "$WWW_DIR"
-mkdir -p "$WWW_DIR" "$MACOS_DIR"
-cp -R "$ROOT/dist/." "$WWW_DIR/"
-
-# Sanity: index must exist and assets must be relative
-if [[ ! -f "$WWW_DIR/index.html" ]]; then
-  echo "❌ dist/index.html missing after build"
-  exit 1
-fi
-if grep -q 'src="/assets/' "$WWW_DIR/index.html"; then
-  echo "❌ Built index.html still uses absolute /assets paths — check vite base: './'"
-  exit 1
-fi
-
-echo "🍎 Compiling ScreenSaver binary..."
+echo "🍎 Compiling native Flip Clock ScreenSaver (no WebKit)..."
 if ! xcrun --find swiftc >/dev/null 2>&1; then
   echo "❌ swiftc not found. Install Xcode Command Line Tools."
   exit 1
@@ -39,7 +21,8 @@ SDK="$(xcrun --sdk macosx --show-sdk-path)"
 ARCH="$(uname -m)"
 TARGET="${ARCH}-apple-macosx13.0"
 
-# ScreenSaver plugins must be Mach-O bundles (MH_BUNDLE), not dylibs.
+mkdir -p "$MACOS_DIR" "$SAVER_BUNDLE/Contents/Resources"
+
 xcrun swiftc \
   -emit-library \
   -Xlinker -bundle \
@@ -48,29 +31,53 @@ xcrun swiftc \
   -sdk "$SDK" \
   -F "$SDK/System/Library/Frameworks" \
   -framework ScreenSaver \
-  -framework WebKit \
   -framework Cocoa \
+  -framework QuartzCore \
   -target "$TARGET" \
   "$SWIFT_SRC"
 
 chmod +x "$BINARY"
 
-# Ad-hoc sign so System Settings can load the bundle locally.
+# Optional: keep web assets for browser/Tauri; not required by the native saver.
+if [[ -d "$ROOT/dist" ]]; then
+  rm -rf "$WWW_DIR"
+  mkdir -p "$WWW_DIR"
+  cp -R "$ROOT/dist/." "$WWW_DIR/" 2>/dev/null || true
+fi
+
 if command -v codesign >/dev/null 2>&1; then
   codesign --force --deep -s - "$SAVER_BUNDLE" 2>/dev/null || true
 fi
 
-# Update version in Info.plist if present
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.1.2" "$SAVER_BUNDLE/Contents/Info.plist" 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 3" "$SAVER_BUNDLE/Contents/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.1.4" "$SAVER_BUNDLE/Contents/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 5" "$SAVER_BUNDLE/Contents/Info.plist" 2>/dev/null || true
+
+echo "✅ Built: $SAVER_BUNDLE ($(file -b "$BINARY"))"
+
+# Install into user Screen Savers
+USER_SAVER="$HOME/Library/Screen Savers/MRXScreenSaver.saver"
+mkdir -p "$HOME/Library/Screen Savers"
+rm -rf "$USER_SAVER"
+cp -R "$SAVER_BUNDLE" "$USER_SAVER"
+xattr -dr com.apple.quarantine "$USER_SAVER" 2>/dev/null || true
+codesign --force --deep -s - "$USER_SAVER" 2>/dev/null || true
+
+# Point preferences at the working user copy; disable large clock overlay
+defaults -currentHost write com.apple.screensaver showClock -bool false
+defaults -currentHost write com.apple.screensaver moduleDict -dict \
+  moduleName "MRX ScreenSaver" \
+  path "$USER_SAVER" \
+  type -int 0
+
+# Force the host to drop the old mmap'd binary
+killall legacyScreenSaver 2>/dev/null || true
+killall ScreenSaverEngine 2>/dev/null || true
 
 echo ""
-echo "✅ Built: $SAVER_BUNDLE"
-echo "   Binary: $BINARY ($(file -b "$BINARY"))"
-echo "   Assets: $WWW_DIR"
+echo "Installed → $USER_SAVER"
 echo ""
-echo "Install:"
-echo "  1. Double-click macos/MRXScreenSaver.saver"
-echo "     OR: cp -R \"$SAVER_BUNDLE\" ~/Library/Screen\\ Savers/"
-echo "  2. System Settings → Screen Saver → choose MRX ScreenSaver"
-echo "  3. If blocked: System Settings → Privacy & Security → Open Anyway"
+echo "NEXT STEPS (important):"
+echo "  1) If this exists, remove the EMPTY system copy:"
+echo "       sudo rm -rf \"/Library/Screen Savers/MRXScreenSaver.saver\""
+echo "  2) System Settings → Screen Saver → select MRX ScreenSaver → Preview"
+echo "  3) Make sure 'Show large clock' is OFF"
