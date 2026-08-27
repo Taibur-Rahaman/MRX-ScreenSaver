@@ -399,26 +399,49 @@ export class FlipClockScene implements Scene {
       // Bottom: OLD digit bottom (covered as new bottom unfolds)
       this.drawClippedDigit(x, y, w, h, x, y + halfH, w, halfH, oldStr, fontSize);
 
-      // 3. Flipqlo two-phase foreshortening (NOT a 180° rotate)
+      // 3. Flipqlo two-phase foreshortening (physical rotateX ≈ cos/sin, not flat ease)
       if (progress < 0.5) {
         const t = progress / 0.5;
-        const eased = t * t; // ease-in
-        const scaleY = 1 - eased;
-        const scaleX = 1;
-        const shade = eased * TOKENS.flapShadowMaxAlpha;
-
+        const angle = t * (Math.PI / 2); // 0 → 90°
+        const scaleY = Math.max(0, Math.cos(angle)); // 1 → 0
+        const scaleX = 1 - (1 - scaleY) * 0.18;
+        const shade = Math.sin(angle) * TOKENS.flapShadowMaxAlpha;
+        // Cast shadow onto the static bottom half
+        if (shade > 0.02) {
+          const cast = ctx.createLinearGradient(x, y + halfH, x, y + h);
+          cast.addColorStop(0, `rgba(0,0,0,${shade * 0.55})`);
+          cast.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = cast;
+          ctx.fillRect(x, y + halfH, w, halfH);
+        }
         if (scaleY > 0.04) {
           this.drawFlap(x, y, w, h, halfH, true, oldStr, fontSize, scaleY, scaleX, shade);
         }
+        if (scaleY < 0.22) {
+          const thick = Math.max(2, halfH * 0.05 * (1 - scaleY / 0.22));
+          ctx.fillStyle = 'rgba(82,82,82,0.95)';
+          ctx.fillRect(x, y + halfH - thick * 0.5, w, thick);
+        }
       } else {
         const t = (progress - 0.5) / 0.5;
-        const eased = 1 - (1 - t) * (1 - t); // ease-out
-        const scaleY = eased;
-        const scaleX = 1;
-        const shade = (1 - eased) * TOKENS.flapShadowMaxAlpha;
-
+        const angle = t * (Math.PI / 2); // 0 → 90°
+        const scaleY = Math.max(0, Math.sin(angle)); // 0 → 1
+        const scaleX = 1 - (1 - scaleY) * 0.18;
+        const shade = Math.cos(angle) * TOKENS.flapShadowMaxAlpha;
+        if (shade > 0.02) {
+          const cast = ctx.createLinearGradient(x, y, x, y + halfH);
+          cast.addColorStop(0, 'rgba(0,0,0,0)');
+          cast.addColorStop(1, `rgba(0,0,0,${shade * 0.45})`);
+          ctx.fillStyle = cast;
+          ctx.fillRect(x, y, w, halfH);
+        }
         if (scaleY > 0.04) {
           this.drawFlap(x, y, w, h, halfH, false, newStr, fontSize, scaleY, scaleX, shade);
+        }
+        if (scaleY < 0.22) {
+          const thick = Math.max(2, halfH * 0.05 * (1 - scaleY / 0.22));
+          ctx.fillStyle = 'rgba(70,70,70,0.9)';
+          ctx.fillRect(x, y + halfH - thick * 0.5, w, thick);
         }
       }
     }
