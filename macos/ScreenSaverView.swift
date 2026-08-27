@@ -1,11 +1,14 @@
 import ScreenSaver
 import WebKit
+import Cocoa
 
+@objc(MRXScreenSaverView)
 class MRXScreenSaverView: ScreenSaverView {
     private var webView: WKWebView!
 
-    override init(frame: NSRect, isPreview: Bool) {
+    override init?(frame: NSRect, isPreview: Bool) {
         super.init(frame: frame, isPreview: isPreview)
+        animationTimeInterval = 1.0 / 30.0
         setupWebView(isPreview: isPreview)
     }
 
@@ -14,39 +17,86 @@ class MRXScreenSaverView: ScreenSaverView {
     }
 
     private func setupWebView(isPreview: Bool) {
-        let webConfiguration = WKWebViewConfiguration()
+        let mode = isPreview ? "preview" : "screensaver"
 
-        // Create the webview
-        webView = WKWebView(frame: self.bounds, configuration: webConfiguration)
+        let preferences = WKWebpagePreferences()
+        preferences.allowsContentJavaScript = true
+
+        let config = WKWebViewConfiguration()
+        config.defaultWebpagePreferences = preferences
+        config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
+        config.setValue(true, forKey: "allowUniversalAccessFromFileURLs")
+
+        // Inject mode/scene before any page JS runs (file:// query strings are unreliable).
+        let bridge = """
+        window.__MRX_SCREENSAVER__ = {
+          mode: "\(mode)",
+          scene: "flipclock"
+        };
+        """
+        config.userContentController.addUserScript(
+            WKUserScript(source: bridge, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+        )
+
+        webView = WKWebView(frame: bounds, configuration: config)
         webView.autoresizingMask = [.width, .height]
-        webView.setValue(false, forKey: "drawsBackground") // Transparent background
+        webView.setValue(false, forKey: "drawsBackground")
+        webView.wantsLayer = true
+        addSubview(webView)
 
-        self.addSubview(webView)
-
-        // Load the bundled Tauri assets
-        if let bundleURL = Bundle.main.resourceURL?.appendingPathComponent("www/index.html") {
-            let mode = isPreview ? "preview" : "screensaver"
-            var request = URLRequest(url: bundleURL)
-
-            // We append the mode as a query parameter to match our frontend logic
-            let urlWithParams = bundleURL.appendingPathComponent("?mode=\(mode)")
-            webView.loadFileURL(urlWithParams, allowingReadAccessTo: Bundle.main.resourceURL!)
+        guard let resourceRoot = Bundle(for: type(of: self)).resourceURL else {
+            showFallback(message: "MRX ScreenSaver: missing Resources")
+            return
         }
+
+        let wwwRoot = resourceRoot.appendingPathComponent("www", isDirectory: true)
+        let indexURL = wwwRoot.appendingPathComponent("index.html")
+
+        guard FileManager.default.fileExists(atPath: indexURL.path) else {
+            showFallback(message: "MRX ScreenSaver: www/index.html not found\nRebuild with: npm run build:macos-saver")
+            return
+        }
+
+        // Prefer a query URL when supported; bridge injection is the source of truth.
+        var components = URLComponents(url: indexURL, resolvingAgainstBaseURL: false)
+        components?.queryItems = [
+            URLQueryItem(name: "mode", value: mode),
+            URLQueryItem(name: "scene", value: "flipclock"),
+        ]
+
+        let loadURL = components?.url ?? indexURL
+        webView.loadFileURL(loadURL, allowingReadAccessTo: wwwRoot)
+    }
+
+    private func showFallback(message: String) {
+        wantsLayer = true
+        layer?.backgroundColor = NSColor.black.cgColor
+
+        let label = NSTextField(labelWithString: message)
+        label.textColor = .white
+        label.alignment = .center
+        label.font = .systemFont(ofSize: 16)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+            label.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 24),
+            label.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -24),
+        ])
+    }
+
+    override func startAnimation() {
+        super.startAnimation()
+        webView?.reload()
     }
 
     override func animateOneFrame() {
-        // WKWebView handles its own animation loop via JS/WebGL
-        // We just need to tell the system we are still animating
         super.animateOneFrame()
     }
 
-    override func hasConfigureSheet() -> Bool {
-        return true
-    }
+    override var hasConfigureSheet: Bool { false }
 
-    override func configureSheet() -> NSWindow? {
-        // In a real app, this would return a window hosting the settings UI
-        // For now, we can return nil or a simple alert
-        return nil
-    }
+    override var configureSheet: NSWindow? { nil }
 }

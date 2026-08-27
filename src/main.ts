@@ -17,13 +17,35 @@ async function init() {
   const settingsManager = new SettingsManager();
   const settings = await settingsManager.loadSettings();
 
-  // Determine mode from URL parameters (set by native shell)
-  const params = new URLSearchParams(window.location.search);
-  const mode = (params.get('mode') as Mode) || Mode.SCREENSAVER;
+  // Native shells (macOS .saver) inject config because file:// query strings are unreliable.
+  const injected = (window as any).__MRX_SCREENSAVER__ as
+    | { mode?: string; scene?: string; speed?: string | number }
+    | undefined;
 
-  // Use URL override or saved settings
-  const sceneName = params.get('scene') || settings.activeScene;
-  const speed = parseFloat(params.get('speed') || settings.globalSpeed.toString());
+  const params = new URLSearchParams(window.location.search);
+  // Also accept hash params: #mode=screensaver&scene=flipclock
+  const hash = window.location.hash.startsWith('#')
+    ? new URLSearchParams(window.location.hash.slice(1))
+    : null;
+
+  const mode =
+    (params.get('mode') as Mode) ||
+    (hash?.get('mode') as Mode) ||
+    (injected?.mode as Mode) ||
+    Mode.SCREENSAVER;
+
+  const sceneName =
+    params.get('scene') ||
+    hash?.get('scene') ||
+    injected?.scene ||
+    settings.activeScene ||
+    'flipclock';
+
+  const speed = parseFloat(
+    params.get('speed') ||
+      hash?.get('speed') ||
+      String(injected?.speed ?? settings.globalSpeed),
+  );
 
   console.log(`Starting in ${mode} mode with scene ${sceneName}`);
 

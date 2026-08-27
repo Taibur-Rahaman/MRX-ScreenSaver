@@ -43,6 +43,24 @@ Query parameters:
 - `?mode=settings`
 - `?scene=flipclock` / `?scene=starfield`
 
+### macOS Screen Saver install
+
+```bash
+npm run build:macos-saver
+```
+
+Then either double-click `macos/MRXScreenSaver.saver`, or:
+
+```bash
+cp -R macos/MRXScreenSaver.saver ~/Library/Screen\ Savers/
+```
+
+Open **System Settings → Screen Saver**, select **MRX ScreenSaver**, and preview it.
+
+If macOS blocks the saver: **Privacy & Security → Open Anyway**.
+
+The macOS saver always loads the **flip clock** scene (injected by the native host). For browser testing use `?scene=flipclock`.
+
 ## 📦 Release Process
 
 The release process is automated via `npm run release`, which executes `scripts/release.sh`.
