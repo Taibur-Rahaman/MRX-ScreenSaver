@@ -115,10 +115,11 @@ jobs:
           cp "$EXE" release-assets/MRXScreenSaver.scr
           cp scripts/windows/Install.bat release-assets/
           cp scripts/windows/README-Windows.txt release-assets/README.txt
+          cp scripts/windows/Open-Screen-Saver-Settings.bat release-assets/
+          cp scripts/windows/Uninstall.bat release-assets/
           (
             cd release-assets
-            # Portable zip so users can find Install.bat + .scr together
-            powershell -Command "Compress-Archive -Path MRXScreenSaver.scr,Install.bat,README.txt -DestinationPath MRXScreenSaver-Windows.zip -Force"
+            powershell -Command "Compress-Archive -Path MRXScreenSaver.scr,Install.bat,README.txt,Open-Screen-Saver-Settings.bat,Uninstall.bat -DestinationPath MRXScreenSaver-Windows.zip -Force"
           )
           ls -la release-assets/
 
@@ -185,8 +186,9 @@ jobs:
 
           ### Windows
           1. Download MRXScreenSaver-Windows.zip and unzip
-          2. Double-click Install.bat
-          3. Select MRXScreenSaver in Screen Saver Settings
+          2. Right-click **Install.bat** → **Run as administrator** (required)
+          3. In the **classic** Screen Saver dialog, choose **MRXScreenSaver** → Apply
+          4. Do NOT use Windows 11 Settings (only built-in savers there). Use desk.cpl or Open-Screen-Saver-Settings.bat
           EOF
           fi
           gh release upload "$TAG" \

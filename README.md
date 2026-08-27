@@ -99,12 +99,13 @@ npm run build:macos-saver
 ```
 
 ### Windows install
-1. Download **MRXScreenSaver-Windows.zip** from the release and unzip.
-2. Double-click **Install.bat**, or right-click `MRXScreenSaver.scr` → **Install**.
-3. Choose **MRXScreenSaver** in Screen Saver Settings → Apply.
-4. Requires [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (usually already on Windows 11).
+1. Download **MRXScreenSaver-Windows.zip** and unzip.
+2. Right-click **Install.bat** → **Run as administrator** (required for System32).
+3. In the **classic** Screen Saver dialog (`Win+R` → `control desk.cpl,,1`), choose **MRXScreenSaver** → Apply.
+4. **Do not** use Windows 11 Settings → Personalization for the list — only built-in savers appear there. Use `Open-Screen-Saver-Settings.bat` from the zip.
+5. Requires [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (usually on Windows 11).
 
-Test without installing: double-click `MRXScreenSaver.scr` (mouse/key exits).
+Test without installing: double-click `MRXScreenSaver.scr` (mouse/key exits after ~1s).
 
 ### macOS install
 1. Download **MRXScreenSaver-macOS.zip**, unzip.
