@@ -2,11 +2,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::Manager;
 
-#[tauri::command]
-fn quit_screensaver() {
-    std::process::exit(0);
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     use std::env;
@@ -41,7 +36,6 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .invoke_handler(tauri::generate_handler![quit_screensaver])
         .setup({
             let exit_on_input = Arc::clone(&exit_on_input);
             move |app| {
@@ -59,23 +53,27 @@ pub fn run() {
                 }
 
                 // Exit on mouse/key after grace period (proper .scr behavior).
+                // Uses window.close() — no custom command permission needed.
                 if exit_on_input.load(Ordering::SeqCst) {
                     let _ = window.eval(
                         r#"(function () {
   let armed = false;
   setTimeout(function () { armed = true; }, 900);
-  function quit() {
+  async function quit() {
     if (!armed) return;
+    armed = false;
     try {
-      if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
-        window.__TAURI__.core.invoke('quit_screensaver');
-      }
+      var w = window.__TAURI__ && window.__TAURI__.webviewWindow
+        && window.__TAURI__.webviewWindow.getCurrentWebviewWindow
+        && window.__TAURI__.webviewWindow.getCurrentWebviewWindow();
+      if (w && w.close) { await w.close(); return; }
     } catch (e) {}
+    try { window.close(); } catch (e2) {}
   }
-  window.addEventListener('mousemove', quit, { once: false });
-  window.addEventListener('mousedown', quit, { once: true });
-  window.addEventListener('keydown', quit, { once: true });
-  window.addEventListener('touchstart', quit, { once: true });
+  window.addEventListener('mousemove', quit);
+  window.addEventListener('mousedown', quit);
+  window.addEventListener('keydown', quit);
+  window.addEventListener('touchstart', quit);
 })();"#,
                     );
                 }
