@@ -1,124 +1,530 @@
 import { Scene, SceneConfig } from '../scenes/manager';
 
+/** Flipqlo-aligned design tokens (shared/design-tokens.json). */
+const TOKENS = {
+  flipDurationMs: 600,
+  flapShadowMaxAlpha: 0.35,
+  cardCornerRadiusPct: 0.04,
+  cardAspectRatio: 0.75,
+  digitToCardHeight: 0.68,
+  colonWidthToCard: 0.25,
+  interDigitGapPct: 0.03,
+  groupGapPct: 0.06,
+  clockToScreenPct: 0.32,
+  background: '#0A0A0A',
+  cardFace: '#1C1C1C',
+  cardHighlight: '#242424',
+  cardLowlight: '#161616',
+  digitColor: '#D8D8D8',
+  dividerLine: '#0F0F0F',
+  dividerShadow: '#000000',
+  colonColor: '#3A3A3A',
+} as const;
+
+interface DigitState {
+  currentDigit: number;
+  oldDigit: number;
+  newDigit: number;
+  progress: number;
+  isFlipping: boolean;
+  flipStartTime: number;
+}
+
+function easeIn(t: number): number {
+  return t * t;
+}
+
+function easeOut(t: number): number {
+  return 1 - (1 - t) * (1 - t);
+}
+
+function createDigitState(digit = 0): DigitState {
+  return {
+    currentDigit: digit,
+    oldDigit: digit,
+    newDigit: digit,
+    progress: 0,
+    isFlipping: false,
+    flipStartTime: 0,
+  };
+}
+
+/**
+ * Flip-clock scene using Flipqlo's rendering model:
+ * per-digit flip state, clipped full-card glyphs, and
+ * center-seam scaleY flaps (not whole-card rotateX).
+ */
 export class FlipClockScene implements Scene {
   private container: HTMLDivElement;
-  private slots: Slot[] = [];
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
   private amPmElement: HTMLDivElement;
   private dateElement: HTMLDivElement;
-  private brandElement: HTMLDivElement;
+  private brandElement: HTMLAnchorElement;
 
-  constructor(gl: WebGL2RenderingContext) {
+  private digits: DigitState[] = Array.from({ length: 6 }, () => createDigitState());
+  private lastTimeKey = '';
+  private resizeObserver: ResizeObserver;
+  private dpr = 1;
+
+  /** Optional override `HHMMSS` for visual testing via `window.__flipClockForceTime`. */
+  private forcedTime: string | null = null;
+
+  constructor(_gl: WebGL2RenderingContext) {
     this.container = document.createElement('div');
     this.container.className = 'flip-clock-container';
     document.body.appendChild(this.container);
 
-    // Brand Name
-    this.brandElement = document.createElement('div');
+    this.brandElement = document.createElement('a');
     this.brandElement.className = 'flip-clock-brand';
-    this.brandElement.innerText = 'MRX';
+    this.brandElement.textContent = 'MRX';
+    this.brandElement.href = 'https://github.com/Taibur-Rahaman/';
+    this.brandElement.target = '_blank';
+    this.brandElement.rel = 'noopener noreferrer';
+    this.brandElement.setAttribute('aria-label', 'MRX on GitHub');
     this.container.appendChild(this.brandElement);
 
-    // AM/PM Indicator
     this.amPmElement = document.createElement('div');
     this.amPmElement.className = 'flip-clock-ampm';
+    this.amPmElement.setAttribute('aria-label', 'AM or PM');
     this.container.appendChild(this.amPmElement);
 
-    // Create slots for HH MM SS (6 digits)
-    const slotContainer = document.createElement('div');
-    slotContainer.className = 'flip-clock-slots';
+    this.canvas = document.createElement('canvas');
+    this.canvas.className = 'flip-clock-canvas';
+    this.canvas.setAttribute('aria-label', 'Flip clock');
+    this.container.appendChild(this.canvas);
 
-    this.slots = Array.from({ length: 6 }, () => new Slot(slotContainer));
+    const ctx = this.canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('2D canvas context unavailable');
+    }
+    this.ctx = ctx;
 
-    this.slots.forEach((slot, i) => {
-      slotContainer.appendChild(slot.element);
-      if (i === 1 || i === 3) {
-        const separator = document.createElement('div');
-        separator.className = 'flip-clock-separator';
-        slotContainer.appendChild(separator);
-      }
-    });
-
-    this.container.appendChild(slotContainer);
-
-    // Date Display
     this.dateElement = document.createElement('div');
     this.dateElement.className = 'flip-clock-date';
     this.container.appendChild(this.dateElement);
+
+    this.resizeObserver = new ResizeObserver(() => this.layoutCanvas());
+    this.resizeObserver.observe(document.body);
+    this.layoutCanvas();
+
+    // Seed digits immediately so the first paint is correct (no flash of zeros).
+    this.syncClock(true);
+
+    Object.defineProperty(window, '__flipClockForceTime', {
+      configurable: true,
+      enumerable: false,
+      get: () => this.forcedTime,
+      set: (value: string | null) => {
+        const next = value && /^\d{6}$/.test(value) ? value : null;
+        const wasForced = this.forcedTime !== null;
+        this.forcedTime = next;
+        if (next === null) {
+          this.lastTimeKey = '';
+          this.syncClock(true);
+        } else if (!wasForced) {
+          this.lastTimeKey = '';
+          this.syncClock(true);
+        } else {
+          // Animate transition between forced times (for visual QA).
+          this.syncClock(false);
+        }
+        this.render();
+      },
+    });
+
+    // Visual QA: set per-digit flip progress without relying on rAF timing.
+    (window as unknown as { __flipClockDebug?: unknown }).__flipClockDebug = {
+      getDigits: () =>
+        this.digits.map((d) => ({
+          current: d.currentDigit,
+          old: d.oldDigit,
+          new: d.newDigit,
+          progress: d.progress,
+          isFlipping: d.isFlipping,
+        })),
+      /** Jump all active flips to a progress value in [0,1] and redraw. */
+      setProgress: (progress: number) => {
+        const p = Math.min(1, Math.max(0, progress));
+        for (const d of this.digits) {
+          if (!d.isFlipping) continue;
+          d.progress = p;
+          if (p >= 1) {
+            d.isFlipping = false;
+            d.progress = 0;
+            d.oldDigit = d.newDigit;
+            d.currentDigit = d.newDigit;
+          }
+        }
+        this.render();
+      },
+      /** Begin flips from fromHHMMSS → toHHMMSS, then set progress. */
+      transitionAt: (from: string, to: string, progress: number) => {
+        this.forcedTime = from;
+        this.lastTimeKey = '';
+        this.syncClock(true);
+        this.forcedTime = to;
+        this.syncClock(false);
+        const p = Math.min(1, Math.max(0, progress));
+        const now = performance.now();
+        for (const d of this.digits) {
+          if (!d.isFlipping) continue;
+          d.progress = p;
+          // Keep RAF-driven advanceAnimations from drifting away from the forced frame.
+          d.flipStartTime = now - p * TOKENS.flipDurationMs;
+        }
+        this.render();
+        return this.digits.map((d) => ({
+          current: d.currentDigit,
+          old: d.oldDigit,
+          new: d.newDigit,
+          progress: d.progress,
+          isFlipping: d.isFlipping,
+        }));
+      },
+    };
   }
 
-  update(time: number, config: SceneConfig) {
-    const now = new Date();
+  private layoutCanvas() {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-    const hours24 = now.getHours();
-    const ampm = hours24 >= 12 ? 'PM' : 'AM';
-    this.amPmElement.innerText = ampm;
+    // Match Flipqlo: card height ≈ 32% of screen height.
+    const cardH = vh * TOKENS.clockToScreenPct;
+    const cardW = cardH * TOKENS.cardAspectRatio;
+    const interGap = cardH * TOKENS.interDigitGapPct;
+    const groupGap = cardH * TOKENS.groupGapPct;
+    const colonW = cardH * TOKENS.colonWidthToCard;
 
-    const hours = String(hours24 % 12 || 12).padStart(2, '0');
-    const mins = String(now.getMinutes()).padStart(2, '0');
-    const secs = String(now.getSeconds()).padStart(2, '0');
-    const timeStr = hours + mins + secs;
-
-    for (let i = 0; i < 6; i++) {
-      this.slots[i].update(timeStr[i]);
+    const groups = 3;
+    let totalW = 0;
+    for (let g = 0; g < groups; g++) {
+      totalW += cardW + interGap + cardW;
+      if (g < groups - 1) totalW += groupGap + colonW + groupGap;
     }
+
+    const cssW = Math.ceil(totalW);
+    const cssH = Math.ceil(cardH);
+
+    this.canvas.style.width = `${cssW}px`;
+    this.canvas.style.height = `${cssH}px`;
+    this.canvas.width = Math.ceil(cssW * this.dpr);
+    this.canvas.height = Math.ceil(cssH * this.dpr);
+    this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+
+    this.render();
+  }
+
+  private readTimeParts(): { digits: number[]; ampm: string; dateLabel: string } {
+    let hours24: number;
+    let mins: number;
+    let secs: number;
+
+    if (this.forcedTime && /^\d{6}$/.test(this.forcedTime)) {
+      hours24 = parseInt(this.forcedTime.slice(0, 2), 10);
+      mins = parseInt(this.forcedTime.slice(2, 4), 10);
+      secs = parseInt(this.forcedTime.slice(4, 6), 10);
+    } else {
+      const now = new Date();
+      hours24 = now.getHours();
+      mins = now.getMinutes();
+      secs = now.getSeconds();
+    }
+
+    const ampm = hours24 >= 12 ? 'PM' : 'AM';
+    const hours12 = hours24 % 12 || 12;
+    const timeStr =
+      String(hours12).padStart(2, '0') +
+      String(mins).padStart(2, '0') +
+      String(secs).padStart(2, '0');
+
+    const digits = timeStr.split('').map((c) => parseInt(c, 10));
 
     const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
     const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-    const dayName = days[now.getDay()];
-    const monthName = months[now.getMonth()];
-    const dateNum = String(now.getDate()).padStart(2, '0');
-    this.dateElement.innerText = `${dayName} ${monthName} ${dateNum}`;
+    const source = this.forcedTime ? new Date() : new Date();
+    // Keep calendar date from real now even when forcing clock digits.
+    const dayName = days[source.getDay()];
+    const monthName = months[source.getMonth()];
+    const dateNum = String(source.getDate()).padStart(2, '0');
+
+    return {
+      digits,
+      ampm,
+      dateLabel: `${dayName} ${monthName} ${dateNum}`,
+    };
+  }
+
+  /** Apply wall-clock digits; start independent flips for changed slots. */
+  private syncClock(immediate: boolean) {
+    const { digits, ampm, dateLabel } = this.readTimeParts();
+    const key = digits.join('');
+    this.amPmElement.textContent = ampm;
+    this.dateElement.textContent = dateLabel;
+
+    if (key === this.lastTimeKey) return;
+    this.lastTimeKey = key;
+
+    const now = performance.now();
+    for (let i = 0; i < 6; i++) {
+      const next = digits[i];
+      const state = this.digits[i];
+      if (immediate || state.currentDigit === next) {
+        state.currentDigit = next;
+        state.oldDigit = next;
+        state.newDigit = next;
+        state.isFlipping = false;
+        state.progress = 0;
+        continue;
+      }
+
+      state.oldDigit = state.isFlipping ? state.newDigit : state.currentDigit;
+      state.newDigit = next;
+      state.currentDigit = next;
+      state.isFlipping = true;
+      state.progress = 0;
+      state.flipStartTime = now;
+    }
+  }
+
+  private advanceAnimations(now: number) {
+    for (let i = 0; i < 6; i++) {
+      const state = this.digits[i];
+      if (!state.isFlipping) continue;
+
+      state.progress = Math.min(1, (now - state.flipStartTime) / TOKENS.flipDurationMs);
+      if (state.progress >= 1) {
+        state.isFlipping = false;
+        state.progress = 0;
+        state.oldDigit = state.newDigit;
+        state.currentDigit = state.newDigit;
+      }
+    }
+  }
+
+  update(_time: number, _config: SceneConfig) {
+    this.syncClock(false);
+    this.advanceAnimations(performance.now());
+    this.render();
   }
 
   destroy() {
+    this.resizeObserver.disconnect();
+    try {
+      delete (window as unknown as { __flipClockForceTime?: unknown }).__flipClockForceTime;
+      delete (window as unknown as { __flipClockDebug?: unknown }).__flipClockDebug;
+    } catch {
+      /* ignore */
+    }
     this.container.remove();
   }
-}
 
-class Slot {
-  public element: HTMLDivElement;
-  private top: HTMLDivElement;
-  private bottom: HTMLDivElement;
-  private flipCard: HTMLDivElement;
-  private currentDigit: string = '';
+  // ── Rendering (Flipqlo model) ──────────────────────────────────────
 
-  constructor(parent: HTMLElement) {
-    this.element = document.createElement('div');
-    this.element.className = 'flip-slot';
+  private render() {
+    const cssW = this.canvas.clientWidth;
+    const cssH = this.canvas.clientHeight;
+    if (cssW <= 0 || cssH <= 0) return;
 
-    this.top = document.createElement('div');
-    this.top.className = 'flip-card top';
-    this.top.innerHTML = `<div class="card-half top">${this.currentDigit}</div>`;
+    const ctx = this.ctx;
+    ctx.clearRect(0, 0, cssW, cssH);
 
-    this.bottom = document.createElement('div');
-    this.bottom.className = 'flip-card bottom';
-    this.bottom.innerHTML = `<div class="card-half bottom">${this.currentDigit}</div>`;
+    const cardH = cssH;
+    const cardW = cardH * TOKENS.cardAspectRatio;
+    const cr = cardH * TOKENS.cardCornerRadiusPct;
+    const interGap = cardH * TOKENS.interDigitGapPct;
+    const groupGap = cardH * TOKENS.groupGapPct;
+    const colonW = cardH * TOKENS.colonWidthToCard;
+    const fontSize = cardH * TOKENS.digitToCardHeight;
 
-    this.flipCard = document.createElement('div');
-    this.flipCard.className = 'flip-card flip';
-    this.flipCard.innerHTML = `<div class="card-half top">${this.currentDigit}</div>`;
+    let x = 0;
+    const y = 0;
+    const groups = 3;
 
-    this.element.appendChild(this.top);
-    this.element.appendChild(this.bottom);
-    this.element.appendChild(this.flipCard);
+    for (let g = 0; g < groups; g++) {
+      const d0 = g * 2;
+      const d1 = g * 2 + 1;
+
+      this.drawDigitCard(x, y, cardW, cardH, cr, fontSize, d0);
+      x += cardW + interGap;
+      this.drawDigitCard(x, y, cardW, cardH, cr, fontSize, d1);
+      x += cardW;
+
+      if (g < groups - 1) {
+        x += groupGap;
+        this.drawColon(x, y, colonW, cardH);
+        x += colonW + groupGap;
+      }
+    }
   }
 
-  update(digit: string) {
-    if (this.currentDigit === digit) return;
+  private drawDigitCard(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    cr: number,
+    fontSize: number,
+    digitIndex: number,
+  ) {
+    const ctx = this.ctx;
+    const halfH = h / 2;
+    const state = this.digits[digitIndex];
+    const animating = state.isFlipping;
+    const progress = animating ? state.progress : 0;
+    const oldDigit = animating ? state.oldDigit : state.currentDigit;
+    const newDigit = animating ? state.newDigit : state.currentDigit;
+    const oldStr = String(oldDigit);
+    const newStr = String(newDigit);
 
-    const oldDigit = this.currentDigit;
-    this.currentDigit = digit;
+    // 1. Card background (subtle top/bottom tonal split inside rounded card)
+    ctx.save();
+    this.roundRectPath(x, y, w, h, cr);
+    ctx.clip();
+    ctx.fillStyle = TOKENS.cardFace;
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = TOKENS.cardHighlight;
+    ctx.fillRect(x, y, w, halfH);
+    ctx.fillStyle = TOKENS.cardLowlight;
+    ctx.fillRect(x, y + halfH, w, halfH);
+    // Soft inner edge highlight on upper lip
+    const edgeGrad = ctx.createLinearGradient(x, y, x, y + 6);
+    edgeGrad.addColorStop(0, 'rgba(255,255,255,0.06)');
+    edgeGrad.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = edgeGrad;
+    ctx.fillRect(x, y, w, 6);
+    ctx.restore();
 
-    this.bottom.querySelector('.card-half')?.textContent = digit;
-    this.flipCard.querySelector('.card-half')?.textContent = oldDigit;
+    if (!animating) {
+      this.drawClippedDigit(x, y, w, h, x, y, w, halfH, newStr, fontSize);
+      this.drawClippedDigit(x, y, w, h, x, y + halfH, w, halfH, newStr, fontSize);
+    } else {
+      // 2. Static layers behind flaps
+      // Top: NEW digit top (revealed as old top folds away)
+      this.drawClippedDigit(x, y, w, h, x, y, w, halfH, newStr, fontSize);
+      // Bottom: OLD digit bottom (covered as new bottom unfolds)
+      this.drawClippedDigit(x, y, w, h, x, y + halfH, w, halfH, oldStr, fontSize);
 
-    this.flipCard.classList.remove('flipping');
-    void this.flipCard.offsetWidth;
-    this.flipCard.classList.add('flipping');
+      // 3. Animated flaps — center-anchored vertical scale (Flipqlo)
+      if (progress < 0.5) {
+        const phase = progress / 0.5;
+        const eased = easeIn(phase);
+        const scaleY = 1 - eased;
 
-    setTimeout(() => {
-      this.top.querySelector('.card-half')?.textContent = digit;
-      this.flipCard.classList.remove('flipping');
-    }, 600);
+        // Skip near-zero flaps to avoid a bright 1px ink line on the seam.
+        if (scaleY > 0.02) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(x, y, w, halfH);
+          ctx.clip();
+          ctx.translate(x + w / 2, y + halfH);
+          ctx.scale(1, scaleY);
+          ctx.translate(-(x + w / 2), -(y + halfH));
+
+          ctx.fillStyle = TOKENS.cardHighlight;
+          ctx.fillRect(x, y, w, halfH);
+          this.drawClippedDigit(x, y, w, h, x, y, w, halfH, oldStr, fontSize);
+
+          ctx.fillStyle = `rgba(0,0,0,${eased * TOKENS.flapShadowMaxAlpha})`;
+          ctx.fillRect(x, y, w, halfH);
+          ctx.restore();
+        }
+      } else {
+        const phase = (progress - 0.5) / 0.5;
+        const eased = easeOut(phase);
+        const scaleY = eased;
+
+        if (scaleY > 0.02) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(x, y + halfH, w, halfH);
+          ctx.clip();
+          ctx.translate(x + w / 2, y + halfH);
+          ctx.scale(1, scaleY);
+          ctx.translate(-(x + w / 2), -(y + halfH));
+
+          ctx.fillStyle = TOKENS.cardLowlight;
+          ctx.fillRect(x, y + halfH, w, halfH);
+          this.drawClippedDigit(x, y, w, h, x, y + halfH, w, halfH, newStr, fontSize);
+
+          ctx.fillStyle = `rgba(0,0,0,${(1 - eased) * TOKENS.flapShadowMaxAlpha})`;
+          ctx.fillRect(x, y + halfH, w, halfH);
+          ctx.restore();
+        }
+      }
+    }
+
+    // 4. Divider last — always on top
+    const divY = y + halfH;
+    ctx.strokeStyle = TOKENS.dividerShadow;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, divY + 1);
+    ctx.lineTo(x + w, divY + 1);
+    ctx.stroke();
+
+    ctx.strokeStyle = TOKENS.dividerLine;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x, divY);
+    ctx.lineTo(x + w, divY);
+    ctx.stroke();
+  }
+
+  /**
+   * Flipqlo DrawClippedDigit: glyph is positioned relative to the FULL card;
+   * only the clip rectangle changes between top and bottom halves.
+   */
+  private drawClippedDigit(
+    cardX: number,
+    cardY: number,
+    cardW: number,
+    cardH: number,
+    clipX: number,
+    clipY: number,
+    clipW: number,
+    clipH: number,
+    digit: string,
+    fontSize: number,
+  ) {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(clipX, clipY, clipW, clipH);
+    ctx.clip();
+
+    ctx.fillStyle = TOKENS.digitColor;
+    ctx.font = `700 ${fontSize}px "JetBrains Mono", "Roboto Mono", "Segoe UI", system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // Same origin for top and bottom — clip alone selects the half.
+    ctx.fillText(digit, cardX + cardW / 2, cardY + cardH / 2);
+    ctx.restore();
+  }
+
+  private drawColon(x: number, y: number, colonW: number, cardH: number) {
+    const ctx = this.ctx;
+    const r = cardH * 0.035;
+    const cx = x + colonW / 2;
+    ctx.fillStyle = TOKENS.colonColor;
+    ctx.beginPath();
+    ctx.arc(cx, y + cardH * 0.35, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(cx, y + cardH * 0.65, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  private roundRectPath(x: number, y: number, w: number, h: number, r: number) {
+    const ctx = this.ctx;
+    const radius = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + w, y, x + w, y + h, radius);
+    ctx.arcTo(x + w, y + h, x, y + h, radius);
+    ctx.arcTo(x, y + h, x, y, radius);
+    ctx.arcTo(x, y, x + w, y, radius);
+    ctx.closePath();
   }
 }

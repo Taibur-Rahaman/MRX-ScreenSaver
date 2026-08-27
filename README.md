@@ -2,10 +2,13 @@
 
 A high-performance, cross-platform screensaver powered by **Tauri**, **WebGL 2**, and **TypeScript**.
 
+Created by **[MRX](https://github.com/Taibur-Rahaman/)**.
+
 ## 🚀 Features
+- **Flip Clock**: Flipqlo-style split-flap clock with per-digit animation, AM/PM, and date.
+- **Starfield**: Hardware-accelerated WebGL starfield scene.
 - **Cross-Platform**: Native `.scr` for Windows and `.saver` for macOS.
-- **WebGL Core**: Hardware-accelerated animations for smooth, high-frame-rate visuals.
-- **Operational Modes**: Dedicated modes for Full-screen, Preview, and Settings.
+- **Operational Modes**: Full-screen, Preview, and Settings.
 - **Persistence**: User preferences saved locally via Tauri Store.
 
 ## 🛠️ Development
@@ -16,18 +19,29 @@ A high-performance, cross-platform screensaver powered by **Tauri**, **WebGL 2**
 - [Tauri Prerequisites](https://tauri.app/start/prerequisites/)
 
 ### Installation
-\`\`\`bash
+```bash
 npm install
-\`\`\`
+```
 
 ### Running in Dev Mode
-\`\`\`bash
+```bash
 npm run tauri dev
-\`\`\`
-To test specific modes, append query parameters to the URL (if using a browser) or modify `main.rs` default flags:
+```
+
+Browser preview:
+```bash
+npm run dev
+```
+
+Then open:
+- Flip clock: `http://localhost:1420/?scene=flipclock`
+- Starfield: `http://localhost:1420/?scene=starfield`
+
+Query parameters:
 - `?mode=screensaver`
 - `?mode=preview`
 - `?mode=settings`
+- `?scene=flipclock` / `?scene=starfield`
 
 ## 📦 Release Process
 
@@ -48,7 +62,10 @@ The release process is automated via `npm run release`, which executes `scripts/
 
 ## 📁 Project Structure
 - `src/core/`: Rendering engine and scene management.
-- `src/core/scenes/`: Individual animation implementations.
+- `src/core/scenes/`: Individual animation implementations (flip clock, starfield).
 - `src-tauri/`: Rust backend for window management and system integration.
 - `macos/`: Native Swift wrapper and bundle configuration.
 - `assets/`: Shaders and visual resources.
+
+## 👤 Credit
+**MRX** — [github.com/Taibur-Rahaman](https://github.com/Taibur-Rahaman/)

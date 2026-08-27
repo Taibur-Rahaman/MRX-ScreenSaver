@@ -6,7 +6,16 @@ export class SettingsManager {
   private cachedSettings: AppSettings | null = null;
 
   constructor() {
-    this.store = new Store('.settings.dat');
+    if (window.__TAURI__) {
+      this.store = new Store('.settings.dat');
+    } else {
+      // Mock store for browser development
+      this.store = {
+        get: async (key: string) => JSON.parse(localStorage.getItem(key) || 'null'),
+        set: async (key: string, value: any) => localStorage.setItem(key, JSON.stringify(value)),
+        save: async () => {},
+      } as any;
+    }
   }
 
   async loadSettings(): Promise<AppSettings> {
@@ -18,9 +27,9 @@ export class SettingsManager {
       return saved;
     }
 
-    // Default settings
+    // Default settings — flip clock is the primary screensaver scene.
     const defaults: AppSettings = {
-      activeScene: 'starfield',
+      activeScene: 'flipclock',
       globalSpeed: 1.0,
       themeColor: '#ffffff',
     };

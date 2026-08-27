@@ -4,8 +4,8 @@ body, html {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background-color: black;
-  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: #0a0a0a;
+  font-family: 'JetBrains Mono', 'Roboto Mono', 'Segoe UI', system-ui, sans-serif;
 }
 
 #screensaver-canvas {
@@ -24,118 +24,62 @@ body, html {
   flex-direction: column;
   align-items: center;
   z-index: 10;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.flip-clock-slots {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  position: relative;
+.flip-clock-canvas {
+  display: block;
+  /* Soft drop under the assembly — not per-flap glow */
+  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.55));
 }
 
+/* AM/PM sits on the upper-left of the clock assembly */
 .flip-clock-ampm {
   position: absolute;
-  top: -30px;
-  left: 0;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 18px;
-  font-weight: bold;
-}
-
-.flip-clock-separator {
-  width: 10px;
-  height: 100%;
+  top: clamp(10px, 1.1vw, 22px);
+  left: clamp(14px, 1.3vw, 26px);
+  z-index: 20;
+  color: rgba(216, 216, 216, 0.55);
+  font-size: clamp(14px, 1.35vw, 22px);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .flip-clock-date {
-  margin-top: 50px;
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 28px;
-  font-weight: 500;
-  letter-spacing: 15px;
+  margin-top: clamp(40px, 4.5vw, 72px);
+  color: rgba(216, 216, 216, 0.55);
+  font-size: clamp(18px, 2vw, 28px);
+  font-weight: 400;
+  letter-spacing: 0.35em;
   text-align: center;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
+/* Subtle creator credit → GitHub profile */
 .flip-clock-brand {
   position: absolute;
-  top: -80px;
+  bottom: clamp(-64px, -5.5vw, -48px);
   right: 0;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 24px;
-  font-weight: 300;
-  letter-spacing: 5px;
+  font-size: clamp(12px, 1vw, 15px);
+  font-weight: 400;
+  letter-spacing: 0.28em;
+  color: rgba(216, 216, 216, 0.32);
+  text-decoration: none;
+  transition: color 0.2s ease;
 }
 
-/* Individual Slot */
-.flip-slot {
-  position: relative;
-  width: 110px;
-  height: 180px;
-  background: #1a1a1a;
-  border-radius: 8px;
-  font-size: 130px;
-  font-weight: 700;
-  color: #e0e0e0;
-  text-align: center;
-  perspective: 1000px;
-  box-shadow: 0 15px 35px rgba(0,0,0,0.8);
+.flip-clock-brand:hover,
+.flip-clock-brand:focus-visible {
+  color: rgba(216, 216, 216, 0.7);
+  outline: none;
 }
 
-.flip-card {
-  position: absolute;
-  width: 100%;
-  height: 50%;
-  overflow: hidden;
-  background: #222;
-  left: 0;
-}
-
-.flip-card.top {
-  top: 0;
-  border-bottom: 1px solid rgba(0,0,0,0.7);
-  border-radius: 8px 8px 0 0;
-  z-index: 2;
-  background: linear-gradient(to bottom, #2a2a2a 0%, #222 100%);
-}
-
-.flip-card.bottom {
-  bottom: 0;
-  border-radius: 0 0 8px 8px;
-  z-index: 1;
-  background: linear-gradient(to bottom, #222 0%, #1a1a1a 100%);
-}
-
-.flip-card.flip {
-  top: 0;
-  z-index: 3;
-  transform-origin: bottom;
-  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-  border-radius: 8px 8px 0 0;
-  background: #2a2a2a;
-  backface-visibility: hidden;
-}
-
-.flip-card.flip.flipping {
-  transform: rotateX(-180deg);
-}
-
-.card-half {
-  width: 100%;
-  height: 200%;
-  display: flex;
-  justify-content: center;
-  position: absolute;
-  left: 0;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-}
-
-.card-half.top {
-  top: 0;
-  line-height: 180px;
-}
-
-.card-half.bottom {
-  bottom: 0;
-  line-height: 0;
+@media (prefers-reduced-motion: reduce) {
+  .flip-clock-brand {
+    transition: none;
+  }
 }

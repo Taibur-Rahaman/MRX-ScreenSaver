@@ -10,6 +10,7 @@ async function init() {
   const gl = renderer.getGL();
 
   const sceneManager = new SceneManager(gl);
+  (window as any).sceneManager = sceneManager;
   sceneManager.registerScene('starfield', StarfieldScene);
   sceneManager.registerScene('flipclock', FlipClockScene);
 
