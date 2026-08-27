@@ -88,15 +88,42 @@
 }
 
 - (void)ensureFullSize {
+    // Prefer the window's logical point size. ScreenSaver hosts sometimes report
+    // backing-pixel bounds (2x), which makes the clock oversized and cropped.
+    if (self.window != nil) {
+        NSSize winSize = self.window.frame.size;
+        if (winSize.width > 1 && winSize.height > 1) {
+            if (fabs(self.bounds.size.width - winSize.width) > 1 ||
+                fabs(self.bounds.size.height - winSize.height) > 1) {
+                [self setFrameSize:winSize];
+            }
+            return;
+        }
+    }
     if (self.bounds.size.width > 1 && self.bounds.size.height > 1) return;
     NSSize target = self.window.screen.frame.size;
     if (target.width < 1 || target.height < 1) {
         target = NSScreen.mainScreen.frame.size;
     }
     if (target.width < 1 || target.height < 1) {
-        target = NSMakeSize(1920, 1080);
+        target = NSMakeSize(1440, 900);
     }
     [self setFrameSize:target];
+}
+
+- (NSRect)safeDrawingBounds {
+    NSRect b = self.bounds;
+    NSSize screenPts = self.window.screen.frame.size;
+    if (screenPts.width < 1 || screenPts.height < 1) {
+        screenPts = NSScreen.mainScreen.frame.size;
+    }
+    // If bounds look like backing pixels (~2x screen points), shrink to points.
+    if (screenPts.width > 1 && b.size.width > screenPts.width * 1.25) {
+        b.size.width = screenPts.width;
+        b.size.height = screenPts.height;
+        b.origin = NSZeroPoint;
+    }
+    return b;
 }
 
 #pragma mark - Clock state
@@ -164,22 +191,21 @@
 
 - (void)drawRect:(NSRect)dirtyRect {
     [self ensureFullSize];
-    NSRect bounds = self.bounds;
+    NSRect bounds = [self safeDrawingBounds];
     if (bounds.size.width <= 1 || bounds.size.height <= 1) return;
 
     [[NSColor colorWithCalibratedWhite:0.04 alpha:1] setFill];
-    NSRectFill(bounds);
+    NSRectFill(self.bounds);
     [self drawClockInBounds:bounds];
 }
 
 - (void)drawClockInBounds:(NSRect)bounds {
-    CGFloat cardH = MIN(bounds.size.height * 0.32, bounds.size.width * 0.22);
-    CGFloat cardW = cardH * 0.75;
-    CGFloat cr = cardH * 0.04;
-    CGFloat interGap = cardH * 0.03;
-    CGFloat groupGap = cardH * 0.06;
-    CGFloat colonW = cardH * 0.25;
-    CGFloat fontSize = cardH * 0.68;
+    // Medium scale: ~20% of height, never wider than ~78% of the screen.
+    CGFloat cardH = bounds.size.height * 0.20;
+    CGFloat cardW = cardH * 0.72;
+    CGFloat interGap = cardH * 0.045;
+    CGFloat groupGap = cardH * 0.08;
+    CGFloat colonW = cardH * 0.18;
 
     CGFloat totalW = 0;
     for (int g = 0; g < 3; g++) {
@@ -187,12 +213,27 @@
         if (g < 2) totalW += groupGap + colonW + groupGap;
     }
 
+    CGFloat maxW = bounds.size.width * 0.78;
+    if (totalW > maxW && totalW > 1) {
+        CGFloat s = maxW / totalW;
+        cardH *= s;
+        cardW *= s;
+        interGap *= s;
+        groupGap *= s;
+        colonW *= s;
+        totalW = maxW;
+    }
+
+    CGFloat cr = cardH * 0.05;
+    CGFloat fontSize = cardH * 0.66;
+
     CGFloat x = (bounds.size.width - totalW) / 2.0;
     CGFloat y = NSMidY(bounds) - cardH / 2.0;
+    CGFloat startX = x;
 
     [self drawText:_ampm
-           atPoint:NSMakePoint(x + 8, y + cardH + 14)
-          fontSize:MAX(14, cardH * 0.12)
+           atPoint:NSMakePoint(startX, y + cardH + MAX(10, cardH * 0.08))
+          fontSize:MAX(12, cardH * 0.11)
              color:[NSColor colorWithCalibratedWhite:0.55 alpha:1]
              align:0];
 
@@ -209,14 +250,14 @@
     }
 
     [self drawText:_dateLabel
-           atPoint:NSMakePoint(NSMidX(bounds), y - cardH * 0.35)
-          fontSize:MAX(16, cardH * 0.14)
+           atPoint:NSMakePoint(NSMidX(bounds), y - MAX(28, cardH * 0.28))
+          fontSize:MAX(14, cardH * 0.13)
              color:[NSColor colorWithCalibratedWhite:0.55 alpha:1]
              align:1];
 
     [self drawText:@"MRX"
-           atPoint:NSMakePoint(NSMidX(bounds) + totalW / 2.0, y - cardH * 0.55)
-          fontSize:MAX(12, cardH * 0.08)
+           atPoint:NSMakePoint(startX + totalW, y - MAX(48, cardH * 0.48))
+          fontSize:MAX(11, cardH * 0.08)
              color:[NSColor colorWithCalibratedWhite:0.35 alpha:1]
              align:2];
 }
