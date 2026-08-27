@@ -48,28 +48,33 @@ Query parameters:
 The macOS `.saver` is a **native** Flipqlo-style flip clock (Core Graphics).  
 It does **not** use WKWebView — WebKit black-screens inside `legacyScreenSaver` on Sonoma+.
 
+**From GitHub release:** unzip `MRXScreenSaver-macOS.zip` and double-click  
+`Install-MRX-ScreenSaver.command`.  
+Do **not** double-click `MRXScreenSaver.saver` after a Chrome download — macOS shows  
+“damaged” and Preview stays black.
+
+**From source:**
 ```bash
 npm run build:macos-saver
 # or:
 bash scripts/fix-macos-screensaver.sh
 ```
 
-Then run these exactly:
-
+If you must install manually after download:
 ```bash
-# CRITICAL — remove the empty broken system install
+cp -R MRXScreenSaver.saver ~/Library/Screen\ Savers/
+xattr -cr ~/Library/Screen\ Savers/MRXScreenSaver.saver
+codesign --force --deep -s - --timestamp=none ~/Library/Screen\ Savers/MRXScreenSaver.saver
+```
+
+Then:
+```bash
 sudo rm -rf "/Library/Screen Savers/MRXScreenSaver.saver"
-
-# Force macOS to reload the saver host
 killall legacyScreenSaver ScreenSaverEngine 2>/dev/null
-
-# Keep the big system clock overlay OFF
 defaults -currentHost write com.apple.screensaver showClock -bool false
 ```
 
 Open **System Settings → Screen Saver → MRX ScreenSaver → Preview**.
-
-If macOS blocks it: **Privacy & Security → Open Anyway**.
 
 Browser / Tauri still use the web Flip Clock via `?scene=flipclock`.
 
@@ -81,7 +86,7 @@ Push a version tag (or run **Release** workflow manually). GitHub Actions builds
 |-------|----------|
 | `MRXScreenSaver-Windows.zip` | Windows (Install.bat + .scr) |
 | `MRXScreenSaver.scr` | Windows |
-| `MRXScreenSaver-macOS.saver.zip` | macOS |
+| `MRXScreenSaver-macOS.zip` | macOS (Install command + .saver) |
 
 ```bash
 git tag v0.1.8 && git push origin v0.1.8
@@ -102,10 +107,10 @@ npm run build:macos-saver
 Test without installing: double-click `MRXScreenSaver.scr` (mouse/key exits).
 
 ### macOS install
-1. Download **MRXScreenSaver-macOS.saver.zip**, unzip.
-2. Double-click `MRXScreenSaver.saver`, or run `npm run build:macos-saver`.
-3. Remove any broken system copy if needed:
-   `sudo rm -rf "/Library/Screen Savers/MRXScreenSaver.saver"`
+1. Download **MRXScreenSaver-macOS.zip**, unzip.
+2. Double-click **Install-MRX-ScreenSaver.command** (do not open the .saver directly after Chrome download).
+3. System Settings → Screen Saver → MRX ScreenSaver → Preview.
+4. If needed: `sudo rm -rf "/Library/Screen Savers/MRXScreenSaver.saver"`
 
 Browser / Tauri still use the web Flip Clock via `?scene=flipclock`.
 

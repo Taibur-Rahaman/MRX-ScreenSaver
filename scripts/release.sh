@@ -18,12 +18,18 @@ npm run build
 if [[ "$(uname -s)" == "Darwin" ]]; then
   echo "🍎 Building macOS .saver..."
   bash "$ROOT/scripts/build-macos-saver.sh"
-  # Zip the bundle so GitHub Releases can host it as a single file
-  (
-    cd "$ROOT/macos"
-    ditto -c -k --sequesterRsrc --keepParent "MRXScreenSaver.saver" "$OUT/MRXScreenSaver-macOS.saver.zip"
-  )
-  echo "✅ $OUT/MRXScreenSaver-macOS.saver.zip"
+  PKG="$OUT/macos-pkg"
+  rm -rf "$PKG"
+  mkdir -p "$PKG"
+  cp -R "$ROOT/macos/MRXScreenSaver.saver" "$PKG/"
+  cp "$ROOT/scripts/macos/Install-MRX-ScreenSaver.command" "$PKG/"
+  cp "$ROOT/scripts/macos/README-macOS.txt" "$PKG/"
+  chmod +x "$PKG/Install-MRX-ScreenSaver.command"
+  xattr -cr "$PKG/MRXScreenSaver.saver"
+  codesign --force --sign - --timestamp=none "$PKG/MRXScreenSaver.saver/Contents/MacOS/MRXScreenSaver" 2>/dev/null || true
+  codesign --force --deep --sign - --timestamp=none "$PKG/MRXScreenSaver.saver" 2>/dev/null || true
+  (cd "$PKG" && zip -r "$OUT/MRXScreenSaver-macOS.zip" . -x "*.DS_Store")
+  echo "✅ $OUT/MRXScreenSaver-macOS.zip"
 fi
 
 # Windows .scr — only when building on Windows (or via GitHub Actions)
