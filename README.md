@@ -53,9 +53,22 @@ Then either double-click `macos/MRXScreenSaver.saver`, or:
 
 ```bash
 cp -R macos/MRXScreenSaver.saver ~/Library/Screen\ Savers/
+xattr -dr com.apple.quarantine ~/Library/Screen\ Savers/MRXScreenSaver.saver
 ```
 
 Open **System Settings → Screen Saver**, select **MRX ScreenSaver**, and preview it.
+
+**Important — avoid the black system clock overlay:**
+1. In Screen Saver settings, turn **off** “Show large clock” / clock overlay if present.
+2. Or run:
+   ```bash
+   defaults -currentHost write com.apple.screensaver showClock -bool false
+   ```
+3. If you previously installed an empty bundle to `/Library/Screen Savers/`, remove it (it loads instead of the working one):
+   ```bash
+   sudo rm -rf "/Library/Screen Savers/MRXScreenSaver.saver"
+   cp -R macos/MRXScreenSaver.saver ~/Library/Screen\ Savers/
+   ```
 
 If macOS blocks the saver: **Privacy & Security → Open Anyway**.
 
