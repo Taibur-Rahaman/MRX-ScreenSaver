@@ -2,20 +2,20 @@ import { Scene, SceneConfig } from '../scenes/manager';
 
 /** Flipqlo-aligned design tokens (shared/design-tokens.json). */
 const TOKENS = {
-  flipDurationMs: 600,
-  flapShadowMaxAlpha: 0.35,
+  flipDurationMs: 720,
+  flapShadowMaxAlpha: 0.55,
   cardCornerRadiusPct: 0.04,
   cardAspectRatio: 0.75,
   digitToCardHeight: 0.68,
   colonWidthToCard: 0.25,
   interDigitGapPct: 0.03,
   groupGapPct: 0.06,
-  clockToScreenPct: 0.32,
+  clockToScreenPct: 0.352,
   background: '#0A0A0A',
   cardFace: '#1C1C1C',
-  cardHighlight: '#242424',
-  cardLowlight: '#161616',
-  digitColor: '#D8D8D8',
+  cardHighlight: '#252525',
+  cardLowlight: '#171717',
+  digitColor: '#E0E0E0',
   dividerLine: '#0F0F0F',
   dividerShadow: '#000000',
   colonColor: '#3A3A3A',
@@ -30,13 +30,6 @@ interface DigitState {
   flipStartTime: number;
 }
 
-function easeIn(t: number): number {
-  return t * t;
-}
-
-function easeOut(t: number): number {
-  return 1 - (1 - t) * (1 - t);
-}
 
 function createDigitState(digit = 0): DigitState {
   return {
@@ -406,51 +399,35 @@ export class FlipClockScene implements Scene {
       // Bottom: OLD digit bottom (covered as new bottom unfolds)
       this.drawClippedDigit(x, y, w, h, x, y + halfH, w, halfH, oldStr, fontSize);
 
-      // 3. Animated flaps — center-anchored vertical scale (Flipqlo)
-      if (progress < 0.5) {
-        const phase = progress / 0.5;
-        const eased = easeIn(phase);
-        const scaleY = 1 - eased;
+      // 3. Physical rotation 0→π with perspective (avoids black mid-flip void)
+      const angle = progress * Math.PI;
 
-        // Skip near-zero flaps to avoid a bright 1px ink line on the seam.
-        if (scaleY > 0.02) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(x, y, w, halfH);
-          ctx.clip();
-          ctx.translate(x + w / 2, y + halfH);
-          ctx.scale(1, scaleY);
-          ctx.translate(-(x + w / 2), -(y + halfH));
+      if (angle < Math.PI * 0.5) {
+        const scaleY = Math.max(0, Math.cos(angle));
+        const scaleX = 1 - (1 - scaleY) * 0.1;
+        const shade = Math.sin(angle) * TOKENS.flapShadowMaxAlpha;
 
-          ctx.fillStyle = TOKENS.cardHighlight;
-          ctx.fillRect(x, y, w, halfH);
-          this.drawClippedDigit(x, y, w, h, x, y, w, halfH, oldStr, fontSize);
-
-          ctx.fillStyle = `rgba(0,0,0,${eased * TOKENS.flapShadowMaxAlpha})`;
-          ctx.fillRect(x, y, w, halfH);
-          ctx.restore();
+        if (scaleY > 0.012) {
+          this.drawFlap(x, y, w, h, halfH, true, oldStr, fontSize, scaleY, scaleX, shade);
+        }
+        if (scaleY < 0.18) {
+          const thick = Math.max(1.5, halfH * 0.04 * (1 - scaleY / 0.18));
+          ctx.fillStyle = 'rgba(55,55,55,0.9)';
+          ctx.fillRect(x, y + halfH - thick * 0.35, w, thick);
         }
       } else {
-        const phase = (progress - 0.5) / 0.5;
-        const eased = easeOut(phase);
-        const scaleY = eased;
+        const local = angle - Math.PI * 0.5;
+        const scaleY = Math.max(0, Math.sin(local));
+        const scaleX = 1 - (1 - scaleY) * 0.1;
+        const shade = Math.cos(local) * TOKENS.flapShadowMaxAlpha;
 
-        if (scaleY > 0.02) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(x, y + halfH, w, halfH);
-          ctx.clip();
-          ctx.translate(x + w / 2, y + halfH);
-          ctx.scale(1, scaleY);
-          ctx.translate(-(x + w / 2), -(y + halfH));
-
-          ctx.fillStyle = TOKENS.cardLowlight;
-          ctx.fillRect(x, y + halfH, w, halfH);
-          this.drawClippedDigit(x, y, w, h, x, y + halfH, w, halfH, newStr, fontSize);
-
-          ctx.fillStyle = `rgba(0,0,0,${(1 - eased) * TOKENS.flapShadowMaxAlpha})`;
-          ctx.fillRect(x, y + halfH, w, halfH);
-          ctx.restore();
+        if (scaleY > 0.012) {
+          this.drawFlap(x, y, w, h, halfH, false, newStr, fontSize, scaleY, scaleX, shade);
+        }
+        if (scaleY < 0.18) {
+          const thick = Math.max(1.5, halfH * 0.04 * (1 - scaleY / 0.18));
+          ctx.fillStyle = 'rgba(45,45,45,0.85)';
+          ctx.fillRect(x, y + halfH - thick * 0.65, w, thick);
         }
       }
     }
@@ -470,6 +447,57 @@ export class FlipClockScene implements Scene {
     ctx.moveTo(x, divY);
     ctx.lineTo(x + w, divY);
     ctx.stroke();
+  }
+
+  /** Center-hinged flap with perspective squeeze + edge gradient shade. */
+  private drawFlap(
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    halfH: number,
+    isTop: boolean,
+    digit: string,
+    fontSize: number,
+    scaleY: number,
+    scaleX: number,
+    shade: number,
+  ) {
+    const ctx = this.ctx;
+    const clipY = isTop ? y : y + halfH;
+    const hinge = y + halfH;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, clipY, w, halfH);
+    ctx.clip();
+    ctx.translate(x + w / 2, hinge);
+    ctx.scale(scaleX, scaleY);
+    ctx.translate(-(x + w / 2), -hinge);
+
+    ctx.fillStyle = isTop ? TOKENS.cardHighlight : TOKENS.cardLowlight;
+    ctx.fillRect(x, clipY, w, halfH);
+    this.drawClippedDigit(x, y, w, h, x, clipY, w, halfH, digit, fontSize);
+
+    if (shade > 0.01) {
+      const grad = ctx.createLinearGradient(x, clipY, x, clipY + halfH);
+      if (isTop) {
+        grad.addColorStop(0, `rgba(0,0,0,${Math.min(0.65, shade)})`);
+        grad.addColorStop(1, 'rgba(0,0,0,0)');
+      } else {
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(1, `rgba(0,0,0,${Math.min(0.65, shade)})`);
+      }
+      ctx.fillStyle = grad;
+      ctx.fillRect(x, clipY, w, halfH);
+    }
+
+    const rim = Math.max(1, halfH * 0.035);
+    ctx.fillStyle = `rgba(255,255,255,${(isTop ? 0.1 : 0.06) * scaleY})`;
+    if (isTop) ctx.fillRect(x, y, w, rim);
+    else ctx.fillRect(x, y + h - rim, w, rim);
+
+    ctx.restore();
   }
 
   /**
