@@ -71,7 +71,7 @@ jobs:
         env:
           CI: true
 
-      - name: Create .scr from exe
+      - name: Create .scr + Windows zip
         shell: bash
         run: |
           mkdir -p release-assets
@@ -97,12 +97,23 @@ jobs:
           fi
           echo "Using $EXE"
           cp "$EXE" release-assets/MRXScreenSaver.scr
-          ls -la release-assets/MRXScreenSaver.scr
+          cp scripts/windows/Install.bat release-assets/
+          cp scripts/windows/README-Windows.txt release-assets/README.txt
+          (
+            cd release-assets
+            # Portable zip so users can find Install.bat + .scr together
+            powershell -Command "Compress-Archive -Path MRXScreenSaver.scr,Install.bat,README.txt -DestinationPath MRXScreenSaver-Windows.zip -Force"
+          )
+          ls -la release-assets/
 
       - uses: actions/upload-artifact@v4
         with:
           name: windows-scr
-          path: release-assets/MRXScreenSaver.scr
+          path: |
+            release-assets/MRXScreenSaver.scr
+            release-assets/MRXScreenSaver-Windows.zip
+            release-assets/Install.bat
+            release-assets/README.txt
 
   publish:
     name: Attach to GitHub Release
@@ -120,6 +131,7 @@ jobs:
           mkdir -p release-assets
           cp artifacts/macos-saver/MRXScreenSaver-macOS.saver.zip release-assets/
           cp artifacts/windows-scr/MRXScreenSaver.scr release-assets/
+          cp artifacts/windows-scr/MRXScreenSaver-Windows.zip release-assets/ || true
           ls -la release-assets/
 
       - name: Resolve tag
@@ -136,26 +148,27 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.tag.outputs.name }}"
-          # Create release if missing (workflow_dispatch / first push)
           if ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh release create "$TAG" \
-              --title "$TAG" \
-              --notes "## Assets
-          - **MRXScreenSaver-macOS.saver.zip** — unzip, double-click to install
-          - **MRXScreenSaver.scr** — right-click → Install (Windows)
+            gh release create "$TAG" --title "$TAG" --notes-file - <<'EOF'
+          ## Assets
+          - **MRXScreenSaver-Windows.zip** — unzip, run Install.bat (recommended)
+          - **MRXScreenSaver.scr** — Windows screensaver binary
+          - **MRXScreenSaver-macOS.saver.zip** — macOS
 
-          ### Windows install
-          1. Download \`MRXScreenSaver.scr\`
-          2. Right-click → **Install**
-          3. Pick it in Screen Saver Settings
+          ### Windows
+          1. Download MRXScreenSaver-Windows.zip and unzip
+          2. Double-click Install.bat (or right-click .scr → Install)
+          3. Select MRXScreenSaver in Screen Saver Settings
+          4. Needs WebView2 Runtime
 
-          ### macOS install
-          1. Download & unzip \`MRXScreenSaver-macOS.saver.zip\`
-          2. Double-click \`MRXScreenSaver.saver\`
-          3. Or: \`npm run build:macos-saver\`"
+          ### macOS
+          1. Unzip MRXScreenSaver-macOS.saver.zip
+          2. Double-click MRXScreenSaver.saver
+          EOF
           fi
           gh release upload "$TAG" \
             release-assets/MRXScreenSaver-macOS.saver.zip \
             release-assets/MRXScreenSaver.scr \
+            release-assets/MRXScreenSaver-Windows.zip \
             --clobber
           echo "Uploaded to https://github.com/${{ github.repository }}/releases/tag/$TAG"

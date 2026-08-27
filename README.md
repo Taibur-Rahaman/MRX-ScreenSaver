@@ -79,8 +79,9 @@ Push a version tag (or run **Release** workflow manually). GitHub Actions builds
 
 | Asset | Platform |
 |-------|----------|
-| `MRXScreenSaver-macOS.saver.zip` | macOS |
+| `MRXScreenSaver-Windows.zip` | Windows (Install.bat + .scr) |
 | `MRXScreenSaver.scr` | Windows |
+| `MRXScreenSaver-macOS.saver.zip` | macOS |
 
 ```bash
 git tag v0.1.8 && git push origin v0.1.8
@@ -93,10 +94,12 @@ npm run build:macos-saver
 ```
 
 ### Windows install
-1. Download **MRXScreenSaver.scr** from the release.
-2. Right-click → **Install**.
-3. Choose it in **Screen Saver Settings**.
-4. Preview / Apply.
+1. Download **MRXScreenSaver-Windows.zip** from the release and unzip.
+2. Double-click **Install.bat**, or right-click `MRXScreenSaver.scr` → **Install**.
+3. Choose **MRXScreenSaver** in Screen Saver Settings → Apply.
+4. Requires [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (usually already on Windows 11).
+
+Test without installing: double-click `MRXScreenSaver.scr` (mouse/key exits).
 
 ### macOS install
 1. Download **MRXScreenSaver-macOS.saver.zip**, unzip.

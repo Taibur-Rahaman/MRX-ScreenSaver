@@ -35,8 +35,8 @@ xcrun clang \
 chmod +x "$BINARY"
 
 codesign --force --deep -s - "$SAVER_BUNDLE" 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.1.8" "$SAVER_BUNDLE/Contents/Info.plist" 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 8" "$SAVER_BUNDLE/Contents/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.1.9" "$SAVER_BUNDLE/Contents/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 9" "$SAVER_BUNDLE/Contents/Info.plist" 2>/dev/null || true
 
 echo "✅ Built: $BINARY ($(file -b "$BINARY"))"
 

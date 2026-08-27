@@ -1,9 +1,10 @@
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tauri::Manager;
 
 #[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
+fn quit_screensaver() {
+    std::process::exit(0);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -13,45 +14,74 @@ pub fn run() {
     let args: Vec<String> = env::args().collect();
 
     // Windows .scr protocol: /s run, /c configure, /p <HWND> preview
-    let (mode, is_fullscreen, is_borderless, is_topmost) = if args.iter().any(|a| a.eq_ignore_ascii_case("/s")) {
-        ("screensaver", true, true, true)
-    } else if args.iter().any(|a| a.eq_ignore_ascii_case("/p")) {
-        ("preview", false, true, false)
-    } else if args.iter().any(|a| a.eq_ignore_ascii_case("/c")) {
-        ("settings", false, false, false)
-    } else {
-        ("screensaver", false, false, false)
-    };
+    let is_s = args.iter().any(|a| a.eq_ignore_ascii_case("/s"));
+    let is_p = args.iter().any(|a| a.eq_ignore_ascii_case("/p"));
+    let is_c = args.iter().any(|a| a.eq_ignore_ascii_case("/c"));
+
+    // Preview HWND mode: exit (can't embed Tauri into the tiny preview well).
+    if is_p && !is_s {
+        return;
+    }
+
+    // Configure: open Windows screen saver CPL, then exit.
+    if is_c && !is_s {
+        #[cfg(target_os = "windows")]
+        {
+            let _ = std::process::Command::new("control")
+                .arg("desk.cpl,,1")
+                .spawn();
+        }
+        return;
+    }
+
+    // /s or double-click → full screensaver
+    let run_fullscreen = is_s || (!is_p && !is_c);
+    let exit_on_input = Arc::new(AtomicBool::new(run_fullscreen));
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
-        .invoke_handler(tauri::generate_handler![greet])
-        .setup(move |app| {
-            let window = app.get_webview_window("main").expect("main window");
+        .invoke_handler(tauri::generate_handler![quit_screensaver])
+        .setup({
+            let exit_on_input = Arc::clone(&exit_on_input);
+            move |app| {
+                let window = app.get_webview_window("main").expect("main window");
 
-            let _ = window.eval(&format!(
-                "window.__MRX_SCREENSAVER__ = Object.assign(window.__MRX_SCREENSAVER__ || {{}}, {{ mode: '{}', scene: 'flipclock' }});",
-                mode
-            ));
+                let _ = window.eval(
+                    "window.__MRX_SCREENSAVER__ = Object.assign(window.__MRX_SCREENSAVER__ || {}, { mode: 'screensaver', scene: 'flipclock' });",
+                );
 
-            if is_fullscreen {
-                let _ = window.set_fullscreen(true);
-            }
-            if is_borderless {
-                let _ = window.set_decorations(false);
-            }
-            if is_topmost {
-                let _ = window.set_always_on_top(true);
-            }
+                if run_fullscreen {
+                    let _ = window.set_decorations(false);
+                    let _ = window.set_always_on_top(true);
+                    let _ = window.maximize();
+                    let _ = window.set_fullscreen(true);
+                }
 
-            // Full-screen saver: maximize + cover the display.
-            if mode == "screensaver" && is_fullscreen {
-                let _ = window.maximize();
-                let _ = window.set_fullscreen(true);
-            }
+                // Exit on mouse/key after grace period (proper .scr behavior).
+                if exit_on_input.load(Ordering::SeqCst) {
+                    let _ = window.eval(
+                        r#"(function () {
+  let armed = false;
+  setTimeout(function () { armed = true; }, 900);
+  function quit() {
+    if (!armed) return;
+    try {
+      if (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke) {
+        window.__TAURI__.core.invoke('quit_screensaver');
+      }
+    } catch (e) {}
+  }
+  window.addEventListener('mousemove', quit, { once: false });
+  window.addEventListener('mousedown', quit, { once: true });
+  window.addEventListener('keydown', quit, { once: true });
+  window.addEventListener('touchstart', quit, { once: true });
+})();"#,
+                    );
+                }
 
-            Ok(())
+                Ok(())
+            }
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

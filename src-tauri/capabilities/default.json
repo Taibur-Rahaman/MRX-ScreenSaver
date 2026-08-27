@@ -6,6 +6,13 @@
   "permissions": [
     "core:default",
     "opener:default",
-    "store:default"
+    "store:default",
+    {
+      "identifier": "allow-quit-screensaver",
+      "description": "Allow the webview to exit the Windows screensaver",
+      "commands": {
+        "allow": ["quit_screensaver"]
+      }
+    }
   ]
 }

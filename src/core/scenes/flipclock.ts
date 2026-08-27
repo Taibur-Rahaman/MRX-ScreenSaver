@@ -399,35 +399,26 @@ export class FlipClockScene implements Scene {
       // Bottom: OLD digit bottom (covered as new bottom unfolds)
       this.drawClippedDigit(x, y, w, h, x, y + halfH, w, halfH, oldStr, fontSize);
 
-      // 3. Physical rotation 0→π with perspective (avoids black mid-flip void)
-      const angle = progress * Math.PI;
+      // 3. Flipqlo two-phase foreshortening (NOT a 180° rotate)
+      if (progress < 0.5) {
+        const t = progress / 0.5;
+        const eased = t * t; // ease-in
+        const scaleY = 1 - eased;
+        const scaleX = 1;
+        const shade = eased * TOKENS.flapShadowMaxAlpha;
 
-      if (angle < Math.PI * 0.5) {
-        const scaleY = Math.max(0, Math.cos(angle));
-        const scaleX = 1 - (1 - scaleY) * 0.1;
-        const shade = Math.sin(angle) * TOKENS.flapShadowMaxAlpha;
-
-        if (scaleY > 0.012) {
+        if (scaleY > 0.04) {
           this.drawFlap(x, y, w, h, halfH, true, oldStr, fontSize, scaleY, scaleX, shade);
         }
-        if (scaleY < 0.18) {
-          const thick = Math.max(1.5, halfH * 0.04 * (1 - scaleY / 0.18));
-          ctx.fillStyle = 'rgba(55,55,55,0.9)';
-          ctx.fillRect(x, y + halfH - thick * 0.35, w, thick);
-        }
       } else {
-        const local = angle - Math.PI * 0.5;
-        const scaleY = Math.max(0, Math.sin(local));
-        const scaleX = 1 - (1 - scaleY) * 0.1;
-        const shade = Math.cos(local) * TOKENS.flapShadowMaxAlpha;
+        const t = (progress - 0.5) / 0.5;
+        const eased = 1 - (1 - t) * (1 - t); // ease-out
+        const scaleY = eased;
+        const scaleX = 1;
+        const shade = (1 - eased) * TOKENS.flapShadowMaxAlpha;
 
-        if (scaleY > 0.012) {
+        if (scaleY > 0.04) {
           this.drawFlap(x, y, w, h, halfH, false, newStr, fontSize, scaleY, scaleX, shade);
-        }
-        if (scaleY < 0.18) {
-          const thick = Math.max(1.5, halfH * 0.04 * (1 - scaleY / 0.18));
-          ctx.fillStyle = 'rgba(45,45,45,0.85)';
-          ctx.fillRect(x, y + halfH - thick * 0.65, w, thick);
         }
       }
     }
