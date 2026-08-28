@@ -43,6 +43,25 @@ function waitForViewport(timeoutMs = 4000): Promise<void> {
   });
 }
 
+function isTauriHost(): boolean {
+  return Boolean((window as unknown as { __TAURI__?: unknown }).__TAURI__);
+}
+
+function setupWebBanner(sceneName: string) {
+  if (isTauriHost()) return;
+
+  const bar = document.createElement('div');
+  bar.className = 'web-banner';
+  bar.innerHTML = `
+    <span class="web-banner-title">MRX ScreenSaver</span>
+    <span class="web-banner-scene">${sceneName === 'starfield' ? 'Starfield' : 'Flip Clock'}</span>
+    <a href="https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest" target="_blank" rel="noopener noreferrer">Download</a>
+    <a href="?scene=flipclock">Flip Clock</a>
+    <a href="?scene=starfield">Starfield</a>
+  `;
+  document.body.appendChild(bar);
+}
+
 /**
  * WebView2 inside a .scr host can throttle or pause rAF.
  * Keep a setInterval fallback so the clock still updates.
@@ -104,6 +123,7 @@ async function init() {
   const config: SceneConfig = { name: sceneName, params: { speed } };
 
   console.log(`Starting in ${mode} mode with scene ${sceneName}`);
+  setupWebBanner(sceneName);
 
   // Flip clock uses Canvas 2D only — do not require WebGL2 (often fails in .scr host).
   if (sceneName === 'flipclock') {

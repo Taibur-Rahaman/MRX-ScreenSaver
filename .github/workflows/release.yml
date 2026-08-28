@@ -132,9 +132,85 @@ jobs:
             release-assets/Install.bat
             release-assets/README.txt
 
+            release-assets/README.txt
+
+  linux-saver:
+    name: Linux AppImage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libssl-dev
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Install Tauri CLI
+        run: npm install -D @tauri-apps/cli@2
+
+      - name: Build Tauri (Linux)
+        run: npx tauri build --bundles appimage
+        env:
+          CI: true
+
+      - name: Package Linux zip
+        run: |
+          mkdir -p release-assets/linux-pkg release-assets
+          BIN=""
+          for candidate in \
+            src-tauri/target/release/MRXScreenSaver \
+            src-tauri/target/release/mrx-screensaver
+          do
+            if [[ -f "$candidate" ]]; then
+              BIN="$candidate"
+              break
+            fi
+          done
+          if [[ -z "$BIN" ]]; then
+            BIN="$(find src-tauri/target/release -maxdepth 1 -type f -executable ! -name '*.so' | head -n 1 || true)"
+          fi
+          APPIMAGE="$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' 2>/dev/null | head -n 1 || true)"
+          if [[ -n "$BIN" && -f "$BIN" ]]; then
+            cp "$BIN" release-assets/linux-pkg/MRXScreenSaver
+            chmod +x release-assets/linux-pkg/MRXScreenSaver
+          fi
+          if [[ -n "$APPIMAGE" && -f "$APPIMAGE" ]]; then
+            cp "$APPIMAGE" release-assets/linux-pkg/
+          fi
+          cp scripts/linux/install.sh release-assets/linux-pkg/
+          cp scripts/linux/uninstall.sh release-assets/linux-pkg/
+          cp scripts/linux/configure-xscreensaver.sh release-assets/linux-pkg/
+          cp scripts/linux/README-Linux.txt release-assets/linux-pkg/README.txt
+          chmod +x release-assets/linux-pkg/*.sh
+          (cd release-assets/linux-pkg && zip -r ../MRXScreenSaver-Linux.zip .)
+          ls -la release-assets/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-saver
+          path: |
+            release-assets/MRXScreenSaver-Linux.zip
+            release-assets/linux-pkg/README.txt
+
   publish:
     name: Attach to GitHub Release
-    needs: [macos-saver, windows-scr]
+    needs: [macos-saver, windows-scr, linux-saver]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -153,6 +229,7 @@ jobs:
             cp scripts/macos/README-macOS.txt release-assets/
           cp artifacts/windows-scr/MRXScreenSaver.scr release-assets/
           cp artifacts/windows-scr/MRXScreenSaver-Windows.zip release-assets/ || true
+          cp artifacts/linux-saver/MRXScreenSaver-Linux.zip release-assets/ || true
           ls -la release-assets/
           unzip -l release-assets/MRXScreenSaver-macOS.zip | head -20
 
@@ -173,22 +250,29 @@ jobs:
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" --title "$TAG" --notes-file - <<'EOF'
           ## Assets
-          - **MRXScreenSaver-macOS.zip** — unzip → run **Install-MRX-ScreenSaver.command**
-          - **Install-MRX-ScreenSaver.command** — standalone macOS installer (use with zip contents)
-          - **MRXScreenSaver-Windows.zip** — Windows installer zip
+          - **MRXScreenSaver-macOS.zip** — macOS native `.saver` + installer
+          - **MRXScreenSaver-Windows.zip** — Windows `.scr` + Install.bat
+          - **MRXScreenSaver-Linux.zip** — Linux AppImage/binary + install scripts
           - **MRXScreenSaver.scr** — Windows screensaver binary
+          - **Web demo** — https://taibur-rahaman.github.io/MRX-ScreenSaver/?scene=flipclock
 
-          ### macOS (required)
-          1. Download **MRXScreenSaver-macOS.zip** (NOT the old .saver.zip)
-          2. Unzip — you must see **Install-MRX-ScreenSaver.command** next to the .saver
-          3. Double-click **Install-MRX-ScreenSaver.command**
-          4. System Settings → Screen Saver → MRX ScreenSaver → Preview
+          ### macOS
+          1. Download **MRXScreenSaver-macOS.zip**
+          2. Unzip → double-click **Install-MRX-ScreenSaver.command**
+          3. System Settings → Screen Saver → MRX ScreenSaver → Preview
 
           ### Windows
-          1. Download MRXScreenSaver-Windows.zip and unzip
-          2. Right-click **Install.bat** → **Run as administrator** (required)
-          3. In the **classic** Screen Saver dialog, choose **MRXScreenSaver** → Apply
-          4. Do NOT use Windows 11 Settings (only built-in savers there). Use desk.cpl or Open-Screen-Saver-Settings.bat
+          1. Download **MRXScreenSaver-Windows.zip** and unzip
+          2. Right-click **Install.bat** → **Run as administrator**
+          3. Classic Screen Saver dialog (`control desk.cpl,,1`) → MRXScreenSaver → Preview
+
+          ### Linux / Ubuntu
+          1. Download **MRXScreenSaver-Linux.zip** and unzip
+          2. Run `bash install.sh`
+          3. Run `mrx-screensaver` or configure XScreenSaver with `bash configure-xscreensaver.sh`
+
+          ### Web (no install)
+          Open the [live flip clock demo](https://taibur-rahaman.github.io/MRX-ScreenSaver/?scene=flipclock)
           EOF
           fi
           gh release upload "$TAG" \
@@ -197,5 +281,6 @@ jobs:
             release-assets/README-macOS.txt \
             release-assets/MRXScreenSaver.scr \
             release-assets/MRXScreenSaver-Windows.zip \
+            release-assets/MRXScreenSaver-Linux.zip \
             --clobber
           echo "Uploaded to https://github.com/${{ github.repository }}/releases/tag/$TAG"

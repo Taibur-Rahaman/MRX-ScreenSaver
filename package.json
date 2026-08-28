@@ -1,11 +1,13 @@
 {
   "name": "mrx-screensaver",
   "private": true,
-  "version": "0.1.17",
+  "version": "0.1.18",
+  "description": "Flipqlo-style flip clock screensaver for Windows, macOS, Linux, and web",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:web": "VITE_BASE_PATH=/MRX-ScreenSaver/ vite build",
     "build:macos-saver": "bash scripts/build-macos-saver.sh",
     "tauri": "tauri",
     "release": "bash scripts/release.sh"

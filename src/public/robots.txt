@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://taibur-rahaman.github.io/MRX-ScreenSaver/sitemap.xml

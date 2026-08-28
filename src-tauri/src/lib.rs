@@ -93,6 +93,17 @@ pub fn run() {
                 .arg("desk.cpl,,1")
                 .spawn();
         }
+        #[cfg(target_os = "linux")]
+        {
+            let _ = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(
+                    "command -v xscreensaver-settings >/dev/null && xscreensaver-settings \
+                     || command -v gnome-control-center >/dev/null && gnome-control-center screensaver \
+                     || true",
+                )
+                .spawn();
+        }
         return;
     }
 

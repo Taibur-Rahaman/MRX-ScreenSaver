@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="MRX ScreenSaver">
+  <rect width="32" height="32" rx="6" fill="#0A0A0A"/>
+  <rect x="6" y="8" width="8" height="16" rx="1.5" fill="#1C1C1C" stroke="#252525"/>
+  <rect x="18" y="8" width="8" height="16" rx="1.5" fill="#1C1C1C" stroke="#252525"/>
+  <text x="10" y="20" font-family="system-ui,sans-serif" font-size="9" font-weight="600" fill="#E0E0E0">1</text>
+  <text x="22" y="20" font-family="system-ui,sans-serif" font-size="9" font-weight="600" fill="#E0E0E0">2</text>
+  <line x1="6" y1="16" x2="26" y2="16" stroke="#0F0F0F" stroke-width="0.5"/>
+</svg>

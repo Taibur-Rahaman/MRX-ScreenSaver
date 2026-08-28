@@ -66,5 +66,38 @@ else
   echo "ℹ️  Windows .scr is built by GitHub Actions on windows-latest (tag push)."
 fi
 
+# Linux — only when building on Linux (or via GitHub Actions)
+if [[ "$(uname -s)" == "Linux" && "${RUNNER_OS:-Linux}" != "Windows" ]]; then
+  echo "🐧 Building Linux screensaver..."
+  npm run tauri build -- --bundles appimage 2>/dev/null || npx tauri build --bundles appimage
+
+  PKG="$OUT/linux-pkg"
+  rm -rf "$PKG"
+  mkdir -p "$PKG"
+
+  BIN=""
+  for candidate in \
+    "src-tauri/target/release/MRXScreenSaver" \
+    "src-tauri/target/release/mrx-screensaver"
+  do
+    if [[ -f "$candidate" ]]; then
+      BIN="$candidate"
+      break
+    fi
+  done
+  [[ -n "$BIN" ]] && cp "$BIN" "$PKG/MRXScreenSaver" && chmod +x "$PKG/MRXScreenSaver"
+
+  APPIMAGE="$(find src-tauri/target/release/bundle/appimage -name '*.AppImage' 2>/dev/null | head -n 1 || true)"
+  [[ -n "$APPIMAGE" ]] && cp "$APPIMAGE" "$PKG/"
+
+  cp scripts/linux/install.sh scripts/linux/uninstall.sh scripts/linux/configure-xscreensaver.sh scripts/linux/README-Linux.txt "$PKG/"
+  mv "$PKG/README-Linux.txt" "$PKG/README.txt"
+  chmod +x "$PKG"/*.sh
+  (cd "$PKG" && zip -r "$OUT/MRXScreenSaver-Linux.zip" .)
+  echo "✅ $OUT/MRXScreenSaver-Linux.zip"
+else
+  echo "ℹ️  Linux zip is built by GitHub Actions on ubuntu-latest (tag push)."
+fi
+
 echo "🎉 Assets in $OUT"
 ls -la "$OUT"

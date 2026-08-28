@@ -1,127 +1,204 @@
-# 🌌 MRX ScreenSaver
+# MRX ScreenSaver
 
-A high-performance, cross-platform screensaver powered by **Tauri**, **WebGL 2**, and **TypeScript**.
+[![Latest Release](https://img.shields.io/github/v/release/Taibur-Rahaman/MRX-ScreenSaver?style=flat-square)](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest)
+[![Release](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/actions/workflows/release.yml/badge.svg)](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/actions/workflows/release.yml)
+[![Web Demo](https://img.shields.io/badge/demo-live%20flip%20clock-0A0A0A?style=flat-square)](https://taibur-rahaman.github.io/MRX-ScreenSaver/?scene=flipclock)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+
+A **Flipqlo-style flip clock screensaver** for **Windows**, **macOS**, **Linux**, and the **web**.
 
 Created by **[MRX](https://github.com/Taibur-Rahaman/)**.
 
-## 🚀 Features
-- **Flip Clock**: Flipqlo-style split-flap clock with per-digit animation, AM/PM, and date.
-- **Starfield**: Hardware-accelerated WebGL starfield scene.
-- **Cross-Platform**: Native `.scr` for Windows and `.saver` for macOS.
-- **Operational Modes**: Full-screen, Preview, and Settings.
-- **Persistence**: User preferences saved locally via Tauri Store.
+---
 
-## 🛠️ Development
+## Try it now (no install)
+
+| Scene | Live demo |
+|-------|-----------|
+| Flip Clock | [Open flip clock](https://taibur-rahaman.github.io/MRX-ScreenSaver/?scene=flipclock) |
+| Starfield | [Open starfield](https://taibur-rahaman.github.io/MRX-ScreenSaver/?scene=starfield) |
+
+---
+
+## Download
+
+**[Latest release →](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest)**
+
+| Platform | Download | Install |
+|----------|----------|---------|
+| **Windows** | [MRXScreenSaver-Windows.zip](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest/download/MRXScreenSaver-Windows.zip) | Run `Install.bat` as administrator |
+| **macOS** | [MRXScreenSaver-macOS.zip](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest/download/MRXScreenSaver-macOS.zip) | Run `Install-MRX-ScreenSaver.command` |
+| **Linux** | [MRXScreenSaver-Linux.zip](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest/download/MRXScreenSaver-Linux.zip) | Run `bash install.sh` |
+| **Web** | [Live demo](https://taibur-rahaman.github.io/MRX-ScreenSaver/?scene=flipclock) | Works in any modern browser |
+
+---
+
+## Screenshots
+
+### Flip Clock (Flipqlo-style)
+
+![Flip clock screensaver preview](docs/screenshots/flipclock-preview.svg)
+
+### Starfield
+
+![Starfield screensaver preview](docs/screenshots/starfield-preview.svg)
+
+---
+
+## Features
+
+- **Flip Clock** — Split-flap digits with per-digit animation, AM/PM, date, and Flipqlo-aligned design tokens
+- **Starfield** — Hardware-accelerated WebGL starfield (web / Tauri hosts)
+- **Cross-platform** — Native `.scr` (Windows), `.saver` (macOS), AppImage/binary (Linux), and browser demo
+- **Modes** — Full-screen run, preview embed, and settings
+- **Offline-safe** — macOS uses native Core Graphics (no WebKit black-screen on Sonoma+)
+
+---
+
+## Windows install
+
+1. Download **[MRXScreenSaver-Windows.zip](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest/download/MRXScreenSaver-Windows.zip)** and unzip.
+2. Right-click **Install.bat** → **Run as administrator** (copies to System32).
+3. Open the **classic** Screen Saver dialog: `Win+R` → `control desk.cpl,,1` (or use `Open-Screen-Saver-Settings.bat`).
+4. Choose **MRXScreenSaver** → **Preview**.
+
+> **Note:** Windows 11 Settings → Personalization only lists built-in savers. Use the classic dialog above.
+
+Requires [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (pre-installed on most Windows 11 systems).
+
+---
+
+## macOS install
+
+1. Download **[MRXScreenSaver-macOS.zip](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest/download/MRXScreenSaver-macOS.zip)** and unzip.
+2. Double-click **Install-MRX-ScreenSaver.command** (do **not** open the `.saver` directly after a browser download).
+3. **System Settings → Screen Saver → MRX ScreenSaver → Preview**.
+
+The macOS bundle is a **native** flip clock (Core Graphics) — not WebKit — so it works reliably on Sonoma and later.
+
+---
+
+## Linux / Ubuntu install
+
+1. Download **[MRXScreenSaver-Linux.zip](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest/download/MRXScreenSaver-Linux.zip)** and unzip.
+2. Run:
+   ```bash
+   bash install.sh
+   ```
+3. Launch from your app menu or terminal:
+   ```bash
+   mrx-screensaver
+   ```
+
+### XScreenSaver (recommended on Ubuntu)
+
+```bash
+sudo apt install xscreensaver
+bash configure-xscreensaver.sh
+```
+
+Then open **XScreenSaver Settings** → select **MRX Flip Clock** → **Preview**.
+
+Move the mouse or press any key to exit.
+
+---
+
+## Development
 
 ### Prerequisites
-- [Rust](https://www.rust-lang.org/tools/install)
-- [Node.js](https://nodejs.org/)
-- [Tauri Prerequisites](https://tauri.app/start/prerequisites/)
 
-### Installation
+- [Node.js](https://nodejs.org/) 20+
+- [Rust](https://www.rust-lang.org/tools/install) (for Tauri / Windows / Linux builds)
+- [Tauri prerequisites](https://tauri.app/start/prerequisites/)
+
+### Setup
+
 ```bash
 npm install
 ```
 
-### Running in Dev Mode
-```bash
-npm run tauri dev
-```
+### Browser dev server
 
-Browser preview:
 ```bash
 npm run dev
 ```
 
-Then open:
-- Flip clock: `http://localhost:1420/?scene=flipclock`
-- Starfield: `http://localhost:1420/?scene=starfield`
+- Flip clock: http://localhost:1420/?scene=flipclock
+- Starfield: http://localhost:1420/?scene=starfield
 
-Query parameters:
-- `?mode=screensaver`
-- `?mode=preview`
-- `?mode=settings`
-- `?scene=flipclock` / `?scene=starfield`
+### Tauri dev (Windows / Linux)
 
-### macOS Screen Saver install
+```bash
+npm run tauri dev
+```
 
-The macOS `.saver` is a **native** Flipqlo-style flip clock (Core Graphics).  
-It does **not** use WKWebView — WebKit black-screens inside `legacyScreenSaver` on Sonoma+.
+### macOS native .saver
 
-**From GitHub release:** unzip `MRXScreenSaver-macOS.zip` and double-click  
-`Install-MRX-ScreenSaver.command`.  
-Do **not** double-click `MRXScreenSaver.saver` after a Chrome download — macOS shows  
-“damaged” and Preview stays black.
-
-**From source:**
 ```bash
 npm run build:macos-saver
-# or:
-bash scripts/fix-macos-screensaver.sh
 ```
 
-If you must install manually after download:
+### Build web demo locally
+
 ```bash
-cp -R MRXScreenSaver.saver ~/Library/Screen\ Savers/
-xattr -cr ~/Library/Screen\ Savers/MRXScreenSaver.saver
-codesign --force --deep -s - --timestamp=none ~/Library/Screen\ Savers/MRXScreenSaver.saver
+npm run build:web
 ```
 
-Then:
+---
+
+## Query parameters
+
+| Param | Values |
+|-------|--------|
+| `scene` | `flipclock`, `starfield` |
+| `mode` | `screensaver`, `preview`, `settings` |
+| `speed` | `0.1` – `5.0` |
+
+Example: `?scene=flipclock&mode=screensaver`
+
+---
+
+## Release process
+
+Push a version tag to build all platform assets:
+
 ```bash
-sudo rm -rf "/Library/Screen Savers/MRXScreenSaver.saver"
-killall legacyScreenSaver ScreenSaverEngine 2>/dev/null
-defaults -currentHost write com.apple.screensaver showClock -bool false
+git tag v0.1.18 && git push origin v0.1.18
 ```
 
-Open **System Settings → Screen Saver → MRX ScreenSaver → Preview**.
-
-Browser / Tauri still use the web Flip Clock via `?scene=flipclock`.
-
-## 📦 Release Process
-
-Push a version tag (or run **Release** workflow manually). GitHub Actions builds and attaches:
+GitHub Actions builds and publishes:
 
 | Asset | Platform |
 |-------|----------|
-| `MRXScreenSaver-Windows.zip` | Windows (Install.bat + .scr) |
-| `MRXScreenSaver.scr` | Windows |
-| `MRXScreenSaver-macOS.zip` | macOS (Install command + .saver) |
+| `MRXScreenSaver-Windows.zip` | Windows `.scr` + installer |
+| `MRXScreenSaver-macOS.zip` | macOS `.saver` + installer |
+| `MRXScreenSaver-Linux.zip` | Linux AppImage/binary + scripts |
+| Web demo | Auto-deployed to GitHub Pages on `main` |
 
-```bash
-git tag v0.1.8 && git push origin v0.1.8
+---
+
+## Project structure
+
+```
+src/                    TypeScript frontend (flip clock, starfield)
+src-tauri/              Rust/Tauri — Windows .scr + Linux binary
+macos/                  Native Objective-C .saver (macOS)
+scripts/
+  linux/                Linux install + XScreenSaver config
+  macos/                macOS installer
+  windows/              Windows installer
+docs/screenshots/       README & social preview images
+.github/workflows/      Release CI + GitHub Pages deploy
 ```
 
-Local packaging helpers:
-```bash
-npm run release          # macOS .saver zip (on Mac); Windows .scr when run on Windows
-npm run build:macos-saver
-```
+---
 
-### Windows install
-1. Download **MRXScreenSaver-Windows.zip** and unzip.
-2. Right-click **Install.bat** → **Run as administrator** (required for System32).
-3. In the **classic** Screen Saver dialog (`Win+R` → `control desk.cpl,,1`), choose **MRXScreenSaver** → Apply.
-4. **Do not** use Windows 11 Settings → Personalization for the list — only built-in savers appear there. Use `Open-Screen-Saver-Settings.bat` from the zip.
-5. Requires [WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (usually on Windows 11).
+## Keywords
 
-Test without installing: double-click `MRXScreenSaver.scr` (mouse/key exits after ~1s).
+`screensaver` · `flip clock` · `flipqlo` · `windows scr` · `macos saver` · `linux screensaver` · `ubuntu xscreensaver` · `web screensaver` · `tauri` · `typescript`
 
-### macOS install
-1. Download **MRXScreenSaver-macOS.zip**, unzip.
-2. Double-click **Install-MRX-ScreenSaver.command** (do not open the .saver directly after Chrome download).
-3. System Settings → Screen Saver → MRX ScreenSaver → Preview.
-4. If needed: `sudo rm -rf "/Library/Screen Savers/MRXScreenSaver.saver"`
+---
 
-Browser / Tauri still use the web Flip Clock via `?scene=flipclock`.
+## Credit
 
-## 📁 Project Structure
-- `src/core/`: Rendering engine and scene management.
-- `src/core/scenes/`: Individual animation implementations (flip clock, starfield).
-- `src-tauri/`: Rust/Tauri backend — Windows `.scr` packaging.
-- `macos/`: Native Objective-C Flipqlo `.saver` bundle.
-- `.github/workflows/release.yml`: Builds macOS + Windows release assets.
-- `assets/`: Shaders and visual resources.
-
-## 👤 Credit
 **MRX** — [github.com/Taibur-Rahaman](https://github.com/Taibur-Rahaman/)

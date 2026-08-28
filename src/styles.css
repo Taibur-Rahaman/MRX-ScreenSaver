@@ -83,3 +83,53 @@ body, html {
     transition: none;
   }
 }
+
+/* Web demo banner (hidden in native Tauri / .scr hosts) */
+.web-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.65rem 1.25rem;
+  background: rgba(10, 10, 10, 0.92);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-family: system-ui, 'Segoe UI', sans-serif;
+  font-size: 0.85rem;
+  backdrop-filter: blur(8px);
+}
+
+.web-banner-title {
+  color: #e0e0e0;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.web-banner-scene {
+  color: #888;
+  letter-spacing: 0.08em;
+}
+
+.web-banner a {
+  color: #aaa;
+  text-decoration: none;
+  margin-left: auto;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.web-banner a:first-of-type {
+  margin-left: auto;
+}
+
+.web-banner a:hover,
+.web-banner a:focus-visible {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  outline: none;
+}

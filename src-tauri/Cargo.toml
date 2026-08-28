@@ -1,6 +1,6 @@
 [package]
 name = "mrx-screensaver"
-version = "0.1.17"
+version = "0.1.18"
 description = "MRX ScreenSaver — Flipqlo-style flip clock"
 authors = ["MRX"]
 edition = "2021"
