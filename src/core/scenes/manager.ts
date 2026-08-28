@@ -7,14 +7,14 @@ export interface Scene {
 
 export class SceneManager {
   private currentScene: Scene | null = null;
-  private scenes: Map<string, new (gl: WebGL2RenderingContext) => Scene> = new Map();
-  private gl: WebGL2RenderingContext;
+  private scenes: Map<string, new (gl: WebGL2RenderingContext | null) => Scene> = new Map();
+  private gl: WebGL2RenderingContext | null;
 
-  constructor(gl: WebGL2RenderingContext) {
+  constructor(gl: WebGL2RenderingContext | null) {
     this.gl = gl;
   }
 
-  registerScene(name: string, sceneClass: new (gl: WebGL2RenderingContext) => Scene) {
+  registerScene(name: string, sceneClass: new (gl: WebGL2RenderingContext | null) => Scene) {
     this.scenes.set(name, sceneClass);
   }
 

@@ -63,7 +63,7 @@ export class FlipClockScene implements Scene {
   /** Optional override `HHMMSS` for visual testing via `window.__flipClockForceTime`. */
   private forcedTime: string | null = null;
 
-  constructor(_gl: WebGL2RenderingContext) {
+  constructor(_gl: WebGL2RenderingContext | null) {
     this.container = document.createElement('div');
     this.container.className = 'flip-clock-container';
     document.body.appendChild(this.container);

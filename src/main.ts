@@ -5,61 +5,71 @@ import { FlipClockScene } from './core/scenes/flipclock';
 import { Mode, SceneConfig } from './core/types';
 import { SettingsManager } from './core/settings';
 
-async function init() {
-  const renderer = new Renderer('screensaver-canvas');
-  const gl = renderer.getGL();
+function readInjected() {
+  return (window as unknown as { __MRX_SCREENSAVER__?: { mode?: string; scene?: string; speed?: string | number } })
+    .__MRX_SCREENSAVER__;
+}
 
-  const sceneManager = new SceneManager(gl);
-  (window as any).sceneManager = sceneManager;
-  sceneManager.registerScene('starfield', StarfieldScene);
+function resolveSceneName(injected: ReturnType<typeof readInjected>, params: URLSearchParams, hash: URLSearchParams | null, fallback: string) {
+  return params.get('scene') || hash?.get('scene') || injected?.scene || fallback;
+}
+
+function resolveMode(injected: ReturnType<typeof readInjected>, params: URLSearchParams, hash: URLSearchParams | null) {
+  return (params.get('mode') as Mode) || (hash?.get('mode') as Mode) || (injected?.mode as Mode) || Mode.SCREENSAVER;
+}
+
+function startSceneLoop(sceneManager: SceneManager, config: SceneConfig) {
+  const loop = (time: number) => {
+    sceneManager.update(time, config);
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+}
+
+async function initFlipClock(config: SceneConfig) {
+  const webglCanvas = document.getElementById('screensaver-canvas');
+  if (webglCanvas) webglCanvas.style.display = 'none';
+
+  const sceneManager = new SceneManager(null);
   sceneManager.registerScene('flipclock', FlipClockScene);
+  sceneManager.setScene('flipclock', config);
+  startSceneLoop(sceneManager, config);
+}
 
-  const settingsManager = new SettingsManager();
-  const settings = await settingsManager.loadSettings();
-
-  // Native shells (macOS .saver) inject config because file:// query strings are unreliable.
-  const injected = (window as any).__MRX_SCREENSAVER__ as
-    | { mode?: string; scene?: string; speed?: string | number }
-    | undefined;
-
+async function init() {
+  const injected = readInjected();
   const params = new URLSearchParams(window.location.search);
-  // Also accept hash params: #mode=screensaver&scene=flipclock
   const hash = window.location.hash.startsWith('#')
     ? new URLSearchParams(window.location.hash.slice(1))
     : null;
 
-  const mode =
-    (params.get('mode') as Mode) ||
-    (hash?.get('mode') as Mode) ||
-    (injected?.mode as Mode) ||
-    Mode.SCREENSAVER;
-
-  const sceneName =
-    params.get('scene') ||
-    hash?.get('scene') ||
-    injected?.scene ||
-    settings.activeScene ||
-    'flipclock';
-
+  const settingsManager = new SettingsManager();
+  const settings = await settingsManager.loadSettings();
+  const mode = resolveMode(injected, params, hash);
+  const sceneName = resolveSceneName(injected, params, hash, settings.activeScene || 'flipclock');
   const speed = parseFloat(
-    params.get('speed') ||
-      hash?.get('speed') ||
-      String(injected?.speed ?? settings.globalSpeed),
+    params.get('speed') || hash?.get('speed') || String(injected?.speed ?? settings.globalSpeed),
   );
+
+  const config: SceneConfig = { name: sceneName, params: { speed } };
 
   console.log(`Starting in ${mode} mode with scene ${sceneName}`);
 
-  const config: SceneConfig = {
-    name: sceneName,
-    params: {
-      speed: speed,
-    },
-  };
+  // Flip clock uses Canvas 2D only — do not require WebGL2 (often fails in .scr host).
+  if (sceneName === 'flipclock') {
+    await initFlipClock(config);
+    return;
+  }
 
+  const renderer = new Renderer('screensaver-canvas');
+  const gl = renderer.getGL();
+  const sceneManager = new SceneManager(gl);
+  (window as unknown as { sceneManager?: SceneManager }).sceneManager = sceneManager;
+  sceneManager.registerScene('starfield', StarfieldScene);
+  sceneManager.registerScene('flipclock', FlipClockScene);
   sceneManager.setScene(sceneName, config);
 
   if (mode === Mode.SETTINGS) {
-    // Simple settings UI for demo
     const ui = document.createElement('div');
     ui.id = 'settings-ui';
     ui.style.position = 'absolute';
@@ -98,4 +108,11 @@ async function init() {
   });
 }
 
-init().catch(console.error);
+init().catch((err) => {
+  console.error('MRX ScreenSaver init failed', err);
+  document.body.style.background = '#0a0a0a';
+  const msg = document.createElement('div');
+  msg.style.cssText = 'color:#ccc;font-family:system-ui;padding:24px;text-align:center';
+  msg.textContent = 'MRX ScreenSaver failed to start. Install WebView2 Runtime.';
+  document.body.appendChild(msg);
+});
