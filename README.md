@@ -13,6 +13,10 @@ Created by **[MRX](https://github.com/Taibur-Rahaman/)**.
 
 ## Try it now (no install)
 
+> **Use this exact URL** (case-sensitive path):  
+> **https://taibur-rahaman.github.io/MRX-ScreenSaver/?scene=flipclock**  
+> `taibur-rahaman.github.io` alone will show a GitHub 404 — the `/MRX-ScreenSaver/` part is required.
+
 | Scene | Live demo |
 |-------|-----------|
 | Flip Clock | [Open flip clock](https://taibur-rahaman.github.io/MRX-ScreenSaver/?scene=flipclock) |
@@ -37,11 +41,11 @@ Created by **[MRX](https://github.com/Taibur-Rahaman/)**.
 
 ### Flip Clock (Flipqlo-style)
 
-![Flip clock screensaver preview](docs/screenshots/flipclock-preview.svg)
+![Flip clock screensaver preview](https://raw.githubusercontent.com/Taibur-Rahaman/MRX-ScreenSaver/main/docs/screenshots/flipclock-preview.svg)
 
 ### Starfield
 
-![Starfield screensaver preview](docs/screenshots/starfield-preview.svg)
+![Starfield screensaver preview](https://raw.githubusercontent.com/Taibur-Rahaman/MRX-ScreenSaver/main/docs/screenshots/starfield-preview.svg)
 
 ---
 

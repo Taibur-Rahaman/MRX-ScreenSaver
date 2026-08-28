@@ -1,15 +1,28 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 540" role="img" aria-labelledby="title">
   <title>MRX ScreenSaver flip clock preview</title>
   <rect width="960" height="540" fill="#0A0A0A"/>
-  <g transform="translate(480 270)" filter="url(#s)">
-    <defs>
-      <filter id="s"><feDropShadow dx="0" dy="12" stdDeviation="14" flood-opacity="0.5"/></filter>
-    </defs>
-    <g transform="translate(-220 0)"><rect x="-40" y="-60" width="80" height="120" rx="5" fill="#1C1C1C"/><text x="0" y="14" text-anchor="middle" font-size="56" fill="#E0E0E0" font-family="system-ui">1</text><line x1="-40" y1="0" x2="40" y2="0" stroke="#0F0F0F"/></g>
-    <g transform="translate(-110 0)"><rect x="-40" y="-60" width="80" height="120" rx="5" fill="#1C1C1C"/><text x="0" y="14" text-anchor="middle" font-size="56" fill="#E0E0E0" font-family="system-ui">0</text><line x1="-40" y1="0" x2="40" y2="0" stroke="#0F0F0F"/></g>
-    <text x="0" y="14" text-anchor="middle" font-size="36" fill="#3A3A3A" font-family="system-ui">:</text>
-    <g transform="translate(110 0)"><rect x="-40" y="-60" width="80" height="120" rx="5" fill="#1C1C1C"/><text x="0" y="14" text-anchor="middle" font-size="56" fill="#E0E0E0" font-family="system-ui">4</text><line x1="-40" y1="0" x2="40" y2="0" stroke="#0F0F0F"/></g>
-    <g transform="translate(220 0)"><rect x="-40" y="-60" width="80" height="120" rx="5" fill="#1C1C1C"/><text x="0" y="14" text-anchor="middle" font-size="56" fill="#E0E0E0" font-family="system-ui">2</text><line x1="-40" y1="0" x2="40" y2="0" stroke="#0F0F0F"/></g>
+  <g transform="translate(480 270)">
+    <g transform="translate(-220 0)">
+      <rect x="-40" y="-60" width="80" height="120" rx="5" fill="#1C1C1C" stroke="#252525"/>
+      <text x="0" y="14" text-anchor="middle" font-size="56" fill="#E0E0E0" font-family="system-ui,sans-serif">1</text>
+      <line x1="-40" y1="0" x2="40" y2="0" stroke="#0F0F0F"/>
+    </g>
+    <g transform="translate(-110 0)">
+      <rect x="-40" y="-60" width="80" height="120" rx="5" fill="#1C1C1C" stroke="#252525"/>
+      <text x="0" y="14" text-anchor="middle" font-size="56" fill="#E0E0E0" font-family="system-ui,sans-serif">0</text>
+      <line x1="-40" y1="0" x2="40" y2="0" stroke="#0F0F0F"/>
+    </g>
+    <text x="0" y="14" text-anchor="middle" font-size="36" fill="#3A3A3A" font-family="system-ui,sans-serif">:</text>
+    <g transform="translate(110 0)">
+      <rect x="-40" y="-60" width="80" height="120" rx="5" fill="#1C1C1C" stroke="#252525"/>
+      <text x="0" y="14" text-anchor="middle" font-size="56" fill="#E0E0E0" font-family="system-ui,sans-serif">4</text>
+      <line x1="-40" y1="0" x2="40" y2="0" stroke="#0F0F0F"/>
+    </g>
+    <g transform="translate(220 0)">
+      <rect x="-40" y="-60" width="80" height="120" rx="5" fill="#1C1C1C" stroke="#252525"/>
+      <text x="0" y="14" text-anchor="middle" font-size="56" fill="#E0E0E0" font-family="system-ui,sans-serif">2</text>
+      <line x1="-40" y1="0" x2="40" y2="0" stroke="#0F0F0F"/>
+    </g>
   </g>
-  <text x="480" y="460" text-anchor="middle" font-size="14" fill="#555" letter-spacing="5" font-family="system-ui">PM · FRIDAY</text>
+  <text x="480" y="460" text-anchor="middle" font-size="14" fill="#555" letter-spacing="5" font-family="system-ui,sans-serif">PM · FRIDAY</text>
 </svg>
