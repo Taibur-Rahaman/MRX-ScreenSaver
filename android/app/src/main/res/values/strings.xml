@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MRX Flip Clock</string>
+    <string name="dream_name">MRX Flip Clock</string>
+    <string name="preview_title">Flip Clock Screen Saver</string>
+    <string name="preview_hint">Rotate your phone for landscape or portrait layout.</string>
+    <string name="set_screensaver">Set as screen saver</string>
+    <string name="screensaver_steps">Settings → Display → Screen saver → MRX Flip Clock</string>
+    <string name="tap_to_exit">Tap to exit preview</string>
+</resources>
