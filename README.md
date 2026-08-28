@@ -30,10 +30,15 @@ Created by **[MRX](https://github.com/Taibur-Rahaman/)**.
 
 | Platform | Download | Install |
 |----------|----------|---------|
-| **Windows** | [MRXScreenSaver-Windows.zip](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest/download/MRXScreenSaver-Windows.zip) | Run `Install.bat` as administrator |
-| **macOS** | [MRXScreenSaver-macOS.zip](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest/download/MRXScreenSaver-macOS.zip) | Run `Install-MRX-ScreenSaver.command` |
-| **Linux** | [MRXScreenSaver-Linux.zip](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest/download/MRXScreenSaver-Linux.zip) | Run `bash install.sh` |
+| **Windows** | [MRXScreenSaver-Windows.zip](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest/download/MRXScreenSaver-Windows.zip) | Run **`Install.bat`** as administrator |
+| **macOS** | [MRXScreenSaver-macOS.zip](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest/download/MRXScreenSaver-macOS.zip) | Run **`Install-MRX-ScreenSaver.command`** or **`Install`** |
+| **Linux** | [MRXScreenSaver-Linux.zip](https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest/download/MRXScreenSaver-Linux.zip) | Run **`bash install.sh`** (auto-installs WebKitGTK deps) |
 | **Web** | [Live demo](https://taibur-rahaman.github.io/MRX-ScreenSaver/?scene=flipclock) | Works in any modern browser |
+
+Installers detect your OS and install dependencies automatically:
+- **Windows** — WebView2 Runtime (via `winget` if missing)
+- **Linux** — `apt` / `dnf` / `pacman` WebKitGTK packages
+- **macOS** — native `.saver`, no extra runtime needed
 
 ---
 
@@ -41,11 +46,11 @@ Created by **[MRX](https://github.com/Taibur-Rahaman/)**.
 
 ### Flip Clock (Flipqlo-style)
 
-![Flip clock screensaver preview](https://raw.githubusercontent.com/Taibur-Rahaman/MRX-ScreenSaver/main/docs/screenshots/flipclock-preview.svg)
+![Flip clock screensaver](docs/screenshots/flipclock.png)
 
 ### Starfield
 
-![Starfield screensaver preview](https://raw.githubusercontent.com/Taibur-Rahaman/MRX-ScreenSaver/main/docs/screenshots/starfield-preview.svg)
+![Starfield screensaver](docs/screenshots/starfield.png)
 
 ---
 

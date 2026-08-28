@@ -7,7 +7,29 @@ INSTALL_DIR="${HOME}/.local/share/mrx-screensaver"
 BIN_DIR="${HOME}/.local/bin"
 DESKTOP_DIR="${HOME}/.local/share/applications"
 
-mkdir -p "$INSTALL_DIR" "$BIN_DIR" "$DESKTOP_DIR"
+install_dependencies() {
+  echo "Checking Linux dependencies..."
+  if command -v apt-get >/dev/null 2>&1; then
+    local missing=()
+    for pkg in libwebkit2gtk-4.1-0 libjavascriptcoregtk-4.1-0 libgtk-3-0; do
+      dpkg -s "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
+    done
+    if ((${#missing[@]} > 0)); then
+      echo "Installing: ${missing[*]}"
+      sudo apt-get update -qq
+      sudo apt-get install -y "${missing[@]}" libayatana-appindicator3-1 2>/dev/null \
+        || sudo apt-get install -y libwebkit2gtk-4.1-0 libjavascriptcoregtk-4.1-0 libgtk-3-0
+    fi
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y webkit2gtk4.1 gtk3 libappindicator-gtk3 2>/dev/null || true
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -Sy --needed webkit2gtk-4.1 gtk3 libappindicator-gtk3 2>/dev/null || true
+  elif command -v zypper >/dev/null 2>&1; then
+    sudo zypper install -y libwebkit2gtk-4.1-0 libgtk-3-0 typelib-1_0-AyatanaAppIndicator3-0.1 2>/dev/null || true
+  else
+    echo "ℹ️  Install WebKitGTK 4.1 manually if the app fails to start."
+  fi
+}
 
 pick_binary() {
   if [[ -f "$ROOT/MRXScreenSaver" ]]; then
@@ -22,6 +44,10 @@ pick_binary() {
   fi
   echo ""
 }
+
+install_dependencies
+
+mkdir -p "$INSTALL_DIR" "$BIN_DIR" "$DESKTOP_DIR"
 
 SRC="$(pick_binary)"
 if [[ -z "$SRC" ]]; then
@@ -63,6 +89,3 @@ fi
 
 echo "✅ MRX ScreenSaver installed to $INSTALL_DIR"
 echo "   Run: mrx-screensaver"
-echo "   Or search 'MRX ScreenSaver' in your app launcher."
-echo ""
-echo "For XScreenSaver: bash $ROOT/configure-xscreensaver.sh"

@@ -40,8 +40,8 @@ xcrun clang \
 
 chmod +x "$BINARY"
 
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.1.13" "$SAVER_BUNDLE/Contents/Info.plist" 2>/dev/null || true
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 13" "$SAVER_BUNDLE/Contents/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 0.1.19" "$SAVER_BUNDLE/Contents/Info.plist" 2>/dev/null || true
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion 19" "$SAVER_BUNDLE/Contents/Info.plist" 2>/dev/null || true
 
 sign_saver "$SAVER_BUNDLE"
 

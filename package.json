@@ -1,7 +1,7 @@
 {
   "name": "mrx-screensaver",
   "private": true,
-  "version": "0.1.18",
+  "version": "0.1.19",
   "homepage": "https://taibur-rahaman.github.io/MRX-ScreenSaver/?scene=flipclock",
   "description": "Flipqlo-style flip clock screensaver for Windows, macOS, Linux, and web",
   "type": "module",
@@ -9,6 +9,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:web": "VITE_BASE_PATH=/MRX-ScreenSaver/ vite build",
+    "build:screenshots": "bash scripts/generate-screenshots.sh",
     "build:macos-saver": "bash scripts/build-macos-saver.sh",
     "tauri": "tauri",
     "release": "bash scripts/release.sh"
@@ -16,6 +17,7 @@
   "devDependencies": {
     "@tauri-apps/cli": "^2",
     "@types/node": "^26.3.0",
+    "playwright": "^1.49.1",
     "typescript": "^7.0.2",
     "vite": "^8.2.2"
   },

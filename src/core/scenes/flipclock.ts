@@ -288,12 +288,20 @@ export class FlipClockScene implements Scene {
     for (let i = 0; i < 6; i++) {
       const next = digits[i];
       const state = this.digits[i];
-      if (immediate || state.currentDigit === next) {
+      if (immediate) {
         state.currentDigit = next;
         state.oldDigit = next;
         state.newDigit = next;
         state.isFlipping = false;
         state.progress = 0;
+        continue;
+      }
+      if (state.currentDigit === next) {
+        if (!state.isFlipping) {
+          state.oldDigit = next;
+          state.newDigit = next;
+          state.progress = 0;
+        }
         continue;
       }
 

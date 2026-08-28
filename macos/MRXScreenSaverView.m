@@ -98,10 +98,16 @@
     for (NSUInteger i = 0; i < 6; i++) {
         NSInteger next = [[key substringWithRange:NSMakeRange(i, 1)] integerValue];
         MRXDigitState *d = _digits[i];
-        if (immediate || d.current == next) {
+        if (immediate) {
             d.current = d.oldDigit = d.newDigit = next;
             d.progress = 0;
             d.isFlipping = NO;
+        } else if (next == d.current) {
+            // Digit unchanged — never cancel an in-progress flip (current is already next while animating).
+            if (!d.isFlipping) {
+                d.oldDigit = d.newDigit = next;
+                d.progress = 0;
+            }
         } else {
             d.oldDigit = d.isFlipping ? d.newDigit : d.current;
             d.newDigit = next;
@@ -313,8 +319,8 @@
             if (sy > 0.04) {
                 [self drawFlap:YES digit:oldD card:card half:half font:fontSize scaleY:sy scaleX:sx shade:shade];
             }
-            if (sy < 0.28) {
-                CGFloat thick = MAX(2.5, half * 0.06 * (1.0 - sy / 0.28));
+            if (sy < 0.22) {
+                CGFloat thick = MAX(2.5, half * 0.06 * (1.0 - sy / 0.22));
                 [[NSColor colorWithCalibratedWhite:0.36 alpha:0.95] setFill];
                 NSRectFill(NSMakeRect(x, hinge - thick * 0.5, w, thick));
             }
@@ -333,8 +339,8 @@
             if (sy > 0.04) {
                 [self drawFlap:NO digit:newD card:card half:half font:fontSize scaleY:sy scaleX:sx shade:shade];
             }
-            if (sy < 0.28) {
-                CGFloat thick = MAX(2.5, half * 0.06 * (1.0 - sy / 0.28));
+            if (sy < 0.22) {
+                CGFloat thick = MAX(2.5, half * 0.06 * (1.0 - sy / 0.22));
                 [[NSColor colorWithCalibratedWhite:0.32 alpha:0.9] setFill];
                 NSRectFill(NSMakeRect(x, hinge - thick * 0.5, w, thick));
             }

@@ -39,6 +39,7 @@ jobs:
           mkdir -p release-assets/macos-pkg release-assets
           cp -R macos/MRXScreenSaver.saver release-assets/macos-pkg/
           cp scripts/macos/Install-MRX-ScreenSaver.command release-assets/macos-pkg/
+          cp scripts/Install release-assets/macos-pkg/Install 2>/dev/null || true
           cp scripts/macos/README-macOS.txt release-assets/macos-pkg/
           chmod +x release-assets/macos-pkg/Install-MRX-ScreenSaver.command
           xattr -cr release-assets/macos-pkg/MRXScreenSaver.saver
@@ -114,6 +115,7 @@ jobs:
           echo "Using $EXE"
           cp "$EXE" release-assets/MRXScreenSaver.scr
           cp scripts/windows/Install.bat release-assets/
+          cp scripts/Install.bat release-assets/
           cp scripts/windows/README-Windows.txt release-assets/README.txt
           cp scripts/windows/Open-Screen-Saver-Settings.bat release-assets/
           cp scripts/windows/Uninstall.bat release-assets/
@@ -197,6 +199,7 @@ jobs:
           cp scripts/linux/uninstall.sh release-assets/linux-pkg/
           cp scripts/linux/configure-xscreensaver.sh release-assets/linux-pkg/
           cp scripts/linux/README-Linux.txt release-assets/linux-pkg/README.txt
+          cp scripts/Install release-assets/linux-pkg/Install 2>/dev/null || true
           chmod +x release-assets/linux-pkg/*.sh
           (cd release-assets/linux-pkg && zip -r ../MRXScreenSaver-Linux.zip .)
           ls -la release-assets/

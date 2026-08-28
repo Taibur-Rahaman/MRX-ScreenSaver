@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# MRX ScreenSaver — universal installer (detects OS and runs the right script).
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+
+case "$(uname -s)" in
+  Darwin)
+    exec bash "$ROOT/macos/Install-MRX-ScreenSaver.command"
+    ;;
+  Linux)
+    exec bash "$ROOT/linux/install.sh"
+    ;;
+  MINGW*|MSYS*|CYGWIN*|Windows_NT)
+    if command -v cmd.exe >/dev/null 2>&1; then
+      exec cmd.exe //c "$ROOT\\windows\\Install.bat"
+    elif [[ -f "$ROOT/windows/Install.bat" ]]; then
+      echo "Run Install.bat from Windows Explorer or cmd.exe"
+      exit 1
+    fi
+    ;;
+  *)
+    echo "Unsupported OS: $(uname -s)"
+    echo "Download the zip for your platform from:"
+    echo "  https://github.com/Taibur-Rahaman/MRX-ScreenSaver/releases/latest"
+    exit 1
+    ;;
+esac
