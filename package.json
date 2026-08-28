@@ -1,7 +1,7 @@
 {
   "name": "mrx-screensaver",
   "private": true,
-  "version": "0.1.19",
+  "version": "0.1.20",
   "homepage": "https://taibur-rahaman.github.io/MRX-ScreenSaver/?scene=flipclock",
   "description": "Flipqlo-style flip clock screensaver for Windows, macOS, Linux, and web",
   "type": "module",

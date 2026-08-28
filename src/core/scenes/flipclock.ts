@@ -307,7 +307,6 @@ export class FlipClockScene implements Scene {
 
       state.oldDigit = state.isFlipping ? state.newDigit : state.currentDigit;
       state.newDigit = next;
-      state.currentDigit = next;
       state.isFlipping = true;
       state.progress = 0;
       state.flipStartTime = now;

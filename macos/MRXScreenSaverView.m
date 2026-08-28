@@ -18,10 +18,11 @@
 
 @implementation MRXScreenSaverView {
     NSMutableArray<MRXDigitState *> *_digits;
-    NSString *_lastTimeKey;
     NSString *_ampm;
     NSString *_dateLabel;
     CFTimeInterval _flipDuration;
+    NSTimer *_tickTimer;
+    NSTimeInterval _lastSyncUnix;
 }
 
 - (BOOL)isFlipped { return YES; }
@@ -33,9 +34,9 @@
     self = [super initWithFrame:frame isPreview:isPreview];
     if (self) {
         _flipDuration = 0.72;
-        _lastTimeKey = @"";
         _ampm = @"AM";
         _dateLabel = @"";
+        _lastSyncUnix = 0;
         _digits = [NSMutableArray arrayWithCapacity:6];
         for (int i = 0; i < 6; i++) [_digits addObject:[MRXDigitState new]];
         self.animationTimeInterval = 1.0 / 60.0;
@@ -44,38 +45,89 @@
     return self;
 }
 
+- (void)dealloc {
+    [_tickTimer invalidate];
+}
+
 - (void)startAnimation {
     [super startAnimation];
+    _lastSyncUnix = 0;
     [self syncClockImmediate:YES];
-    [self setNeedsDisplay:YES];
-    [self display];
-}
-- (void)stopAnimation { [super stopAnimation]; }
-- (void)viewDidMoveToWindow {
-    [super viewDidMoveToWindow];
-    [self setNeedsDisplay:YES];
-    [self displayIfNeeded];
-}
-- (void)setFrameSize:(NSSize)newSize {
-    [super setFrameSize:newSize];
+    [self startTickTimer];
     [self setNeedsDisplay:YES];
 }
-- (void)layout {
-    [super layout];
-    [self setNeedsDisplay:YES];
+
+- (void)stopAnimation {
+    [_tickTimer invalidate];
+    _tickTimer = nil;
+    [super stopAnimation];
 }
-- (void)animateOneFrame {
+
+- (void)startTickTimer {
+    [_tickTimer invalidate];
+    _tickTimer = [NSTimer timerWithTimeInterval:(1.0 / 60.0)
+                                         target:self
+                                       selector:@selector(tick:)
+                                       userInfo:nil
+                                        repeats:YES];
+    [[NSRunLoop mainRunLoop] addTimer:_tickTimer forMode:NSRunLoopCommonModes];
+}
+
+- (void)tick:(NSTimer *)timer {
+    (void)timer;
     [self syncClockImmediate:NO];
     [self advanceAnimations];
     [self setNeedsDisplay:YES];
 }
+
+- (void)viewDidMoveToWindow {
+    [super viewDidMoveToWindow];
+    if (self.window) {
+        [self startTickTimer];
+    }
+    [self setNeedsDisplay:YES];
+}
+
+- (void)setFrameSize:(NSSize)newSize {
+    [super setFrameSize:newSize];
+    [self setNeedsDisplay:YES];
+}
+
+- (void)layout {
+    [super layout];
+    [self setNeedsDisplay:YES];
+}
+
+- (void)animateOneFrame {
+    [self tick:nil];
+}
+
 - (BOOL)hasConfigureSheet { return NO; }
 - (NSWindow *)configureSheet { return nil; }
 
 #pragma mark - Clock state
 
+- (NSInteger)targetDigitFromKey:(NSString *)key index:(NSUInteger)i {
+    return [[key substringWithRange:NSMakeRange(i, 1)] integerValue];
+}
+
+/** One forward step on the digit wheel when catching up after missed frames. */
+- (NSInteger)wheelStepFrom:(NSInteger)from toward:(NSInteger)target {
+    if (from == target) return from;
+    return (from + 1) % 10;
+}
+
+- (void)beginFlip:(MRXDigitState *)d toDigit:(NSInteger)next at:(CFTimeInterval)t {
+    d.oldDigit = d.current;
+    d.newDigit = next;
+    d.progress = 0;
+    d.isFlipping = YES;
+    d.start = t;
+}
+
 - (void)syncClockImmediate:(BOOL)immediate {
     NSDate *now = [NSDate date];
+    NSTimeInterval nowUnix = now.timeIntervalSince1970;
     NSCalendar *cal = NSCalendar.currentCalendar;
     NSInteger h24 = [cal component:NSCalendarUnitHour fromDate:now];
     NSInteger mins = [cal component:NSCalendarUnitMinute fromDate:now];
@@ -91,31 +143,36 @@
     NSInteger day = [cal component:NSCalendarUnitDay fromDate:now];
     _dateLabel = [NSString stringWithFormat:@"%@  %@  %02ld", days[weekday], months[month], (long)day];
 
-    if ([key isEqualToString:_lastTimeKey]) return;
-    _lastTimeKey = key;
-
     CFTimeInterval t = CACurrentMediaTime();
-    for (NSUInteger i = 0; i < 6; i++) {
-        NSInteger next = [[key substringWithRange:NSMakeRange(i, 1)] integerValue];
-        MRXDigitState *d = _digits[i];
-        if (immediate) {
+    NSTimeInterval elapsed = (_lastSyncUnix > 0) ? (nowUnix - _lastSyncUnix) : 0;
+    _lastSyncUnix = nowUnix;
+
+    if (immediate) {
+        for (NSUInteger i = 0; i < 6; i++) {
+            NSInteger next = [self targetDigitFromKey:key index:i];
+            MRXDigitState *d = _digits[i];
             d.current = d.oldDigit = d.newDigit = next;
             d.progress = 0;
             d.isFlipping = NO;
-        } else if (next == d.current) {
-            // Digit unchanged — never cancel an in-progress flip (current is already next while animating).
-            if (!d.isFlipping) {
-                d.oldDigit = d.newDigit = next;
-                d.progress = 0;
-            }
-        } else {
-            d.oldDigit = d.isFlipping ? d.newDigit : d.current;
-            d.newDigit = next;
-            d.current = next;
-            d.progress = 0;
-            d.isFlipping = YES;
-            d.start = t;
         }
+        return;
+    }
+
+    BOOL singleTick = elapsed > 0 && elapsed <= 1.15;
+
+    for (NSUInteger i = 0; i < 6; i++) {
+        NSInteger target = [self targetDigitFromKey:key index:i];
+        MRXDigitState *d = _digits[i];
+        if (d.isFlipping) continue;
+        if (d.current == target) continue;
+
+        NSInteger next;
+        if (singleTick) {
+            next = target;
+        } else {
+            next = [self wheelStepFrom:d.current toward:target];
+        }
+        [self beginFlip:d toDigit:next at:t];
     }
 }
 
@@ -128,8 +185,8 @@
         if (p >= 1.0) {
             d.isFlipping = NO;
             d.progress = 0;
-            d.oldDigit = d.newDigit;
             d.current = d.newDigit;
+            d.oldDigit = d.newDigit;
         }
     }
 }
@@ -214,13 +271,13 @@
             [g drawInRect:clip angle:90];
         }
     }
-  CGFloat rim = MAX(1.0, half * 0.035);
-  [[NSColor colorWithCalibratedWhite:1 alpha:(isTop ? 0.10 : 0.06) * sy] setFill];
-  if (isTop) {
-    NSRectFill(NSMakeRect(card.origin.x, card.origin.y, card.size.width, rim));
-  } else {
-    NSRectFill(NSMakeRect(card.origin.x, NSMaxY(card) - rim, card.size.width, rim));
-  }
+    CGFloat rim = MAX(1.0, half * 0.035);
+    [[NSColor colorWithCalibratedWhite:1 alpha:(isTop ? 0.10 : 0.06) * sy] setFill];
+    if (isTop) {
+        NSRectFill(NSMakeRect(card.origin.x, card.origin.y, card.size.width, rim));
+    } else {
+        NSRectFill(NSMakeRect(card.origin.x, NSMaxY(card) - rim, card.size.width, rim));
+    }
     CGContextRestoreGState(ctx);
 }
 
