@@ -41,13 +41,40 @@ fn parse_scr_mode(args: &[String]) -> ScrMode {
     }
 }
 
+fn notify_preview_resized(window: &tauri::WebviewWindow) {
+    let _ = window.show();
+    let _ = window.eval(
+        r#"window.dispatchEvent(new Event('resize'));
+if (window.__MRX_ON_RESIZE__) window.__MRX_ON_RESIZE__();"#,
+    );
+}
+
+/// HWND parenting must run on the UI thread; a background thread leaves a black preview pane.
 fn schedule_preview_embed(window: tauri::WebviewWindow, parent: isize) {
-    std::thread::spawn(move || {
-        for attempt in 0..12 {
-            if windows_scr::embed_preview(&window, parent).is_ok() {
+    tauri::async_runtime::spawn(async move {
+        for attempt in 0..12u32 {
+            let (tx, rx) = std::sync::mpsc::sync_channel(1);
+            let w = window.clone();
+            let p = parent;
+            let embed_target = w.clone();
+            let _ = w.run_on_main_thread(move || {
+                let ok = windows_scr::embed_preview(&embed_target, p).is_ok();
+                let _ = tx.send(ok);
+            });
+
+            let embedded = tauri::async_runtime::spawn_blocking(move || {
+                rx.recv_timeout(std::time::Duration::from_secs(1))
+                    .unwrap_or(false)
+            })
+            .await
+            .unwrap_or(false);
+
+            if embedded {
+                notify_preview_resized(&window);
                 return;
             }
-            std::thread::sleep(std::time::Duration::from_millis(80 + attempt * 60));
+
+            tokio::time::sleep(std::time::Duration::from_millis(80 + u64::from(attempt) * 60)).await;
         }
     });
 }
@@ -108,20 +135,26 @@ pub fn run() {
                 if run_fullscreen {
                     let _ = window.set_fullscreen(true);
                     let _ = window.set_focus();
-                } else if let Some(hwnd) = preview_hwnd {
-                    let _ = window.set_fullscreen(false);
-                    schedule_preview_embed(window, hwnd);
+                } else if preview_hwnd.is_some() {
+                    notify_preview_resized(&window);
                 }
+
+                let _ = window.show();
             }
         })
         .setup({
             let exit_on_input = Arc::clone(&exit_on_input);
+            let preview_hwnd = preview_hwnd;
             move |app| {
                 let window = app.get_webview_window("main").expect("main window");
                 let _ = window.set_decorations(false);
 
                 if run_fullscreen {
                     let _ = window.set_always_on_top(true);
+                    let _ = window.set_fullscreen(true);
+                } else if let Some(hwnd) = preview_hwnd {
+                    let _ = window.set_fullscreen(false);
+                    schedule_preview_embed(window.clone(), hwnd);
                 }
 
                 if exit_on_input.load(Ordering::SeqCst) {

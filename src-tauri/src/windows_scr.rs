@@ -34,9 +34,9 @@ pub fn parse_preview_hwnd(_args: &[String]) -> Option<isize> {
 pub fn embed_preview(window: &tauri::WebviewWindow, parent: isize) -> Result<(), String> {
     use windows_sys::Win32::Foundation::{HWND, RECT};
     use windows_sys::Win32::UI::WindowsAndMessaging::{
-        GetClientRect, GetWindowLongPtrW, SetParent, SetWindowLongPtrW, SetWindowPos, ShowWindow,
-        GWL_STYLE, HWND_TOP, SWP_NOZORDER, SWP_SHOWWINDOW, SW_SHOW, WS_CAPTION, WS_CHILD, WS_POPUP,
-        WS_VISIBLE,
+        GetClientRect, GetWindowLongPtrW, SendMessageW, SetParent, SetWindowLongPtrW, SetWindowPos,
+        ShowWindow, GWL_STYLE, HWND_TOP, SWP_NOZORDER, SWP_SHOWWINDOW, SW_SHOW, WM_SIZE, WS_CAPTION,
+        WS_CHILD, WS_POPUP, WS_VISIBLE,
     };
 
     let hwnd: HWND = window.hwnd().map_err(|e| e.to_string())?.0;
@@ -75,6 +75,9 @@ pub fn embed_preview(window: &tauri::WebviewWindow, parent: isize) -> Result<(),
             h,
             SWP_NOZORDER | SWP_SHOWWINDOW,
         );
+        // SIZE_RESTORED — nudge WebView2 to relayout after reparenting.
+        let lparam = (((h as u32) & 0xFFFF) << 16) | ((w as u32) & 0xFFFF);
+        SendMessageW(hwnd, WM_SIZE, 0, lparam as isize);
         ShowWindow(hwnd, SW_SHOW);
     }
     Ok(())

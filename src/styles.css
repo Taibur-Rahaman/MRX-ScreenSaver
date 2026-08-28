@@ -49,7 +49,7 @@ body, html {
 }
 
 .flip-clock-date {
-  margin-top: clamp(40px, 4.5vw, 72px);
+  margin-top: clamp(36px, 4vw, 65px);
   color: rgba(216, 216, 216, 0.55);
   font-size: clamp(18px, 2vw, 28px);
   font-weight: 400;
@@ -62,7 +62,7 @@ body, html {
 /* Subtle creator credit → GitHub profile */
 .flip-clock-brand {
   position: absolute;
-  bottom: clamp(-64px, -5.5vw, -48px);
+  bottom: clamp(-58px, -5vw, -43px);
   right: 0;
   font-size: clamp(12px, 1vw, 15px);
   font-weight: 400;

@@ -23,6 +23,20 @@ export class SettingsManager {
   }
 
   private async createStore(): Promise<StoreLike> {
+    const injected = (window as unknown as { __MRX_SCREENSAVER__?: { mode?: string } }).__MRX_SCREENSAVER__;
+    const mode = injected?.mode;
+    // .scr runs from System32 — avoid writing settings beside the binary.
+    if (mode === 'screensaver' || mode === 'preview') {
+      return {
+        get: async (key) =>
+          this.memory.has(key) ? (this.memory.get(key) as never) : null,
+        set: async (key, value) => {
+          this.memory.set(key, value);
+        },
+        save: async () => {},
+      };
+    }
+
     const tauri = (window as unknown as { __TAURI__?: unknown }).__TAURI__;
     if (tauri) {
       try {

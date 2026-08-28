@@ -2,8 +2,14 @@ import { Renderer } from './core/renderer';
 import { SceneManager } from './core/scenes/manager';
 import { StarfieldScene } from './core/scenes/starfield';
 import { FlipClockScene } from './core/scenes/flipclock';
-import { Mode, SceneConfig } from './core/types';
+import { AppSettings, Mode, SceneConfig } from './core/types';
 import { SettingsManager } from './core/settings';
+
+const DEFAULT_SETTINGS: AppSettings = {
+  activeScene: 'flipclock',
+  globalSpeed: 1.0,
+  themeColor: '#ffffff',
+};
 
 function readInjected() {
   return (window as unknown as { __MRX_SCREENSAVER__?: { mode?: string; scene?: string; speed?: string | number } })
@@ -18,17 +24,55 @@ function resolveMode(injected: ReturnType<typeof readInjected>, params: URLSearc
   return (params.get('mode') as Mode) || (hash?.get('mode') as Mode) || (injected?.mode as Mode) || Mode.SCREENSAVER;
 }
 
+/** Wait until the host window has non-zero dimensions (common in desk.cpl preview embed). */
+function waitForViewport(timeoutMs = 4000): Promise<void> {
+  return new Promise((resolve) => {
+    const start = performance.now();
+    const tick = () => {
+      if (window.innerWidth > 0 && window.innerHeight > 0) {
+        resolve();
+        return;
+      }
+      if (performance.now() - start >= timeoutMs) {
+        resolve();
+        return;
+      }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  });
+}
+
+/**
+ * WebView2 inside a .scr host can throttle or pause rAF.
+ * Keep a setInterval fallback so the clock still updates.
+ */
 function startSceneLoop(sceneManager: SceneManager, config: SceneConfig) {
-  const loop = (time: number) => {
+  let lastFrame = 0;
+  const step = (time: number) => {
     sceneManager.update(time, config);
+    lastFrame = time;
+  };
+
+  const loop = (time: number) => {
+    step(time);
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);
+
+  setInterval(() => {
+    const now = performance.now();
+    if (now - lastFrame > 400) {
+      step(now);
+    }
+  }, 250);
 }
 
 async function initFlipClock(config: SceneConfig) {
   const webglCanvas = document.getElementById('screensaver-canvas');
   if (webglCanvas) webglCanvas.style.display = 'none';
+
+  await waitForViewport();
 
   const sceneManager = new SceneManager(null);
   sceneManager.registerScene('flipclock', FlipClockScene);
@@ -44,7 +88,13 @@ async function init() {
     : null;
 
   const settingsManager = new SettingsManager();
-  const settings = await settingsManager.loadSettings();
+  // Never block first paint on disk I/O (Tauri store can hang when .scr runs from System32).
+  const settingsPromise = settingsManager.loadSettings().catch(() => DEFAULT_SETTINGS);
+  const settings = { ...DEFAULT_SETTINGS, ...(await Promise.race([
+    settingsPromise,
+    new Promise<AppSettings>((resolve) => setTimeout(() => resolve(DEFAULT_SETTINGS), 300)),
+  ])) };
+
   const mode = resolveMode(injected, params, hash);
   const sceneName = resolveSceneName(injected, params, hash, settings.activeScene || 'flipclock');
   const speed = parseFloat(
@@ -60,6 +110,8 @@ async function init() {
     await initFlipClock(config);
     return;
   }
+
+  await waitForViewport();
 
   const renderer = new Renderer('screensaver-canvas');
   const gl = renderer.getGL();

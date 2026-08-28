@@ -10,7 +10,7 @@ const TOKENS = {
   colonWidthToCard: 0.25,
   interDigitGapPct: 0.03,
   groupGapPct: 0.06,
-  clockToScreenPct: 0.352,
+  clockToScreenPct: 0.317, // 0.352 × 0.9 — inset so fullscreen doesn't crop edges
   background: '#0A0A0A',
   cardFace: '#1C1C1C',
   cardHighlight: '#252525',
@@ -59,6 +59,7 @@ export class FlipClockScene implements Scene {
   private lastTimeKey = '';
   private resizeObserver: ResizeObserver;
   private dpr = 1;
+  private onResize = () => this.layoutCanvas();
 
   /** Optional override `HHMMSS` for visual testing via `window.__flipClockForceTime`. */
   private forcedTime: string | null = null;
@@ -100,6 +101,9 @@ export class FlipClockScene implements Scene {
     this.resizeObserver = new ResizeObserver(() => this.layoutCanvas());
     this.resizeObserver.observe(document.body);
     this.layoutCanvas();
+
+    (window as unknown as { __MRX_ON_RESIZE__?: () => void }).__MRX_ON_RESIZE__ = this.onResize;
+    window.addEventListener('resize', this.onResize);
 
     // Seed digits immediately so the first paint is correct (no flash of zeros).
     this.syncClock(true);
@@ -181,21 +185,42 @@ export class FlipClockScene implements Scene {
   private layoutCanvas() {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
+    if (vw <= 0 || vh <= 0) {
+      requestAnimationFrame(() => this.layoutCanvas());
+      return;
+    }
+
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-    // Match Flipqlo: card height ≈ 32% of screen height.
-    const cardH = vh * TOKENS.clockToScreenPct;
-    const cardW = cardH * TOKENS.cardAspectRatio;
-    const interGap = cardH * TOKENS.interDigitGapPct;
-    const groupGap = cardH * TOKENS.groupGapPct;
-    const colonW = cardH * TOKENS.colonWidthToCard;
+    const maxFill = 0.9; // keep ~10% margin from display edges
+    let cardH = vh * TOKENS.clockToScreenPct;
+    const measureWidth = (h: number) => {
+      const cardW = h * TOKENS.cardAspectRatio;
+      const interGap = h * TOKENS.interDigitGapPct;
+      const groupGap = h * TOKENS.groupGapPct;
+      const colonW = h * TOKENS.colonWidthToCard;
+      let totalW = 0;
+      for (let g = 0; g < 3; g++) {
+        totalW += cardW + interGap + cardW;
+        if (g < 2) totalW += groupGap + colonW + groupGap;
+      }
+      return { totalW, cardW, interGap, groupGap, colonW };
+    };
 
-    const groups = 3;
-    let totalW = 0;
-    for (let g = 0; g < groups; g++) {
-      totalW += cardW + interGap + cardW;
-      if (g < groups - 1) totalW += groupGap + colonW + groupGap;
+    let dims = measureWidth(cardH);
+    // Date + brand sit below the canvas — reserve vertical headroom.
+    const verticalExtra = cardH * 0.28;
+    const scale = Math.min(
+      1,
+      (vw * maxFill) / dims.totalW,
+      (vh * maxFill) / (cardH + verticalExtra),
+    );
+    if (scale < 1) {
+      cardH *= scale;
+      dims = measureWidth(cardH);
     }
+
+    const totalW = dims.totalW;
 
     const cssW = Math.ceil(totalW);
     const cssH = Math.ceil(cardH);
@@ -304,7 +329,9 @@ export class FlipClockScene implements Scene {
 
   destroy() {
     this.resizeObserver.disconnect();
+    window.removeEventListener('resize', this.onResize);
     try {
+      delete (window as unknown as { __MRX_ON_RESIZE__?: unknown }).__MRX_ON_RESIZE__;
       delete (window as unknown as { __flipClockForceTime?: unknown }).__flipClockForceTime;
       delete (window as unknown as { __flipClockDebug?: unknown }).__flipClockDebug;
     } catch {

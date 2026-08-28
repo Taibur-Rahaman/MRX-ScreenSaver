@@ -28,3 +28,7 @@ release-assets/
 .tmp-screens/
 .claude/
 
+# Local Windows test binary
+*.scr
+MRXScreenSaver.scr
+
